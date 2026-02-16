@@ -94,6 +94,24 @@ Everything lives in `.dictum/` at your project root:
 
 The JSONL file is the portable format — use `dictum export` before committing and `dictum import` to restore on another machine.
 
+## Claude Code integration
+
+Dictum ships with a Claude Code skill that teaches Claude to check decisions before making choices and flag contradictions with user requests.
+
+Install it to your project:
+
+```
+cp /path/to/dictum/skills/claude.md .claude/commands/dictum.md
+```
+
+Or install globally (works in all projects):
+
+```
+cp /path/to/dictum/skills/claude.md ~/.claude/commands/dictum.md
+```
+
+Then use `/dictum` in Claude Code to load the decision context.
+
 ## License
 
 MIT
