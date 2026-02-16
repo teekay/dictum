@@ -147,6 +147,13 @@ enum Commands {
 
     /// Visual tree of decisions (refines hierarchy)
     Tree,
+
+    /// Dump active decisions as compact context for LLM agents
+    Context {
+        /// Output format: text, json
+        #[arg(long)]
+        format: Option<String>,
+    },
 }
 
 fn main() {
@@ -247,6 +254,7 @@ fn main() {
         Commands::Export { o } => cli::io::run_export(&cwd, o),
         Commands::Import { i, dry_run } => cli::io::run_import(&cwd, i, dry_run),
         Commands::Tree => cli::list::run_tree(&cwd),
+        Commands::Context { format } => cli::context::run(&cwd, format, is_tty),
     };
 
     if let Err(e) = result {

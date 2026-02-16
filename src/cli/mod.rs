@@ -1,5 +1,6 @@
 pub mod add;
 pub mod amend;
+pub mod context;
 pub mod init;
 pub mod io;
 pub mod link;
