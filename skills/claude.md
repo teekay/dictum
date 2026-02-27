@@ -89,6 +89,20 @@ Each decision has a `weight` that tells you how binding it is:
 - **entails** — logical implication: if A then B must also hold
 - **excludes** — mutual exclusion: A and B cannot both be active
 
+## Vocabulary hygiene
+
+You are the guardian of the project's ubiquitous language. Scopes, labels, and terminology in decision titles form the domain vocabulary. Your job is to keep it consistent.
+
+**Before creating or amending a decision:**
+1. Check existing scopes and labels (`dictum list --format json`, `dictum context --format json`)
+2. If the user's term is a synonym of an established one (e.g. `database` when `db` is already in use), suggest the established term
+3. If a term is genuinely new, use it — but mention you're introducing new vocabulary
+4. If unsure whether two terms refer to the same concept, ask the human
+
+**The human is the authority.** They pick the preferred term. Once they've chosen, use it consistently. Do not silently introduce synonyms.
+
+**The tool is a dumb store.** Vocabulary lives in the decisions themselves — every scope, label, and title is evidence of what terms the team uses. There is no separate vocabulary registry. You enforce consistency by reading what exists and aligning to it.
+
 ## What to do
 
 **If a decision applies to your current task:**
