@@ -37,7 +37,14 @@ pub fn run_import(path: &Path, input_file: Option<String>, dry_run: bool) -> Res
 
     let reader: Box<dyn BufRead> = match input_file {
         Some(ref f) => Box::new(io::BufReader::new(std::fs::File::open(f)?)),
-        None => Box::new(io::BufReader::new(io::stdin())),
+        None => {
+            if atty::is(atty::Stream::Stdin) {
+                eprintln!("Error: no input file specified and stdin is a terminal");
+                eprintln!("Usage: dictum import -i <file>  or  cat file.jsonl | dictum import");
+                std::process::exit(1);
+            }
+            Box::new(io::BufReader::new(io::stdin()))
+        }
     };
 
     let conn = db::open(&dictum_dir)?;

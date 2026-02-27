@@ -5,13 +5,17 @@ use crate::db;
 use crate::error::Result;
 use crate::format::OutputFormat;
 use crate::id::generate_id;
-use crate::model::{Decision, Link, LinkKind, Status};
+use crate::model::{Decision, Kind, Link, LinkKind, Status, Weight};
 
 pub struct AmendArgs {
     pub id: String,
     pub title: Option<String>,
     pub body: Option<String>,
     pub format: Option<String>,
+    pub kind: Option<Kind>,
+    pub weight: Option<Weight>,
+    pub rebuttal: Option<String>,
+    pub scope: Option<String>,
 }
 
 pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
@@ -38,6 +42,10 @@ pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
         created_at: now.clone(),
         updated_at: now.clone(),
         labels: old.labels.clone(),
+        kind: args.kind.unwrap_or(old.kind.clone()),
+        weight: args.weight.unwrap_or(old.weight.clone()),
+        rebuttal: args.rebuttal.or(old.rebuttal.clone()),
+        scope: args.scope.or(old.scope.clone()),
     };
 
     db::decisions::insert(&conn, &new_decision)?;
@@ -53,6 +61,7 @@ pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
         target_id: args.id.clone(),
         kind: LinkKind::Supersedes,
         created_at: now,
+        reason: None,
     };
     db::links::insert(&conn, &link)?;
 

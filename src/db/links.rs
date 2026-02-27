@@ -8,12 +8,13 @@ pub fn insert(conn: &Connection, link: &Link) -> Result<()> {
         return Err(DictumError::SelfLink);
     }
     conn.execute(
-        "INSERT INTO links (source_id, target_id, kind, created_at) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO links (source_id, target_id, kind, created_at, reason) VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             link.source_id,
             link.target_id,
             link.kind.to_string(),
             link.created_at,
+            link.reason,
         ],
     )
     .map_err(|e| match e {
@@ -40,7 +41,7 @@ pub fn delete(conn: &Connection, source_id: &str, kind: &LinkKind, target_id: &s
 
 pub fn get_for_decision(conn: &Connection, decision_id: &str) -> Result<Vec<Link>> {
     let mut stmt = conn.prepare(
-        "SELECT source_id, target_id, kind, created_at FROM links
+        "SELECT source_id, target_id, kind, created_at, reason FROM links
          WHERE source_id = ?1 OR target_id = ?1
          ORDER BY created_at",
     )?;
@@ -54,6 +55,7 @@ pub fn get_for_decision(conn: &Connection, decision_id: &str) -> Result<Vec<Link
                     .parse::<LinkKind>()
                     .unwrap_or(LinkKind::Supports),
                 created_at: row.get(3)?,
+                reason: row.get(4)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;

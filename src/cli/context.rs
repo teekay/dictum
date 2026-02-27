@@ -20,6 +20,9 @@ pub fn run(path: &Path, fmt: Option<String>, is_tty: bool) -> Result<()> {
             level: None,
             status: Some(Status::Active),
             label: None,
+            kind: None,
+            weight: None,
+            scope: None,
         },
     )?;
 
@@ -50,11 +53,17 @@ fn print_json_context(
             let link_values: Vec<serde_json::Value> = links
                 .iter()
                 .map(|l| {
-                    serde_json::json!({
+                    let mut obj = serde_json::json!({
                         "kind": l.kind.to_string(),
                         "source": l.source_id,
                         "target": l.target_id,
-                    })
+                    });
+                    if let Some(ref reason) = l.reason {
+                        obj.as_object_mut()
+                            .unwrap()
+                            .insert("reason".to_string(), serde_json::Value::String(reason.clone()));
+                    }
+                    obj
                 })
                 .collect();
             if !link_values.is_empty() {
@@ -103,13 +112,19 @@ fn print_text_context(
         if let Some(decs) = by_level.get(*level) {
             println!("## {}\n", capitalize(level));
             for d in decs {
-                print!("- [{}] {}", d.id, d.title);
+                print!("- [{}] ({}/{}) {}", d.id, d.kind, d.weight, d.title);
+                if let Some(ref scope) = d.scope {
+                    print!(" [scope: {}]", scope);
+                }
                 if let Some(parent_id) = parent_of.get(d.id.as_str()) {
                     print!(" (refines {})", parent_id);
                 }
                 println!();
                 if let Some(ref body) = d.body {
                     println!("  {}", body);
+                }
+                if let Some(ref rebuttal) = d.rebuttal {
+                    println!("  UNLESS: {}", rebuttal);
                 }
                 if !d.labels.is_empty() {
                     println!("  Labels: {}", d.labels.join(", "));

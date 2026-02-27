@@ -12,6 +12,8 @@ pub enum LinkKind {
     Supersedes,
     Conflicts,
     Requires,
+    Entails,
+    Excludes,
 }
 
 impl fmt::Display for LinkKind {
@@ -22,6 +24,8 @@ impl fmt::Display for LinkKind {
             LinkKind::Supersedes => write!(f, "supersedes"),
             LinkKind::Conflicts => write!(f, "conflicts"),
             LinkKind::Requires => write!(f, "requires"),
+            LinkKind::Entails => write!(f, "entails"),
+            LinkKind::Excludes => write!(f, "excludes"),
         }
     }
 }
@@ -35,6 +39,8 @@ impl FromStr for LinkKind {
             "supersedes" => Ok(LinkKind::Supersedes),
             "conflicts" => Ok(LinkKind::Conflicts),
             "requires" => Ok(LinkKind::Requires),
+            "entails" => Ok(LinkKind::Entails),
+            "excludes" => Ok(LinkKind::Excludes),
             _ => Err(DictumError::InvalidLinkKind(s.to_string())),
         }
     }
@@ -46,4 +52,29 @@ pub struct Link {
     pub target_id: String,
     pub kind: LinkKind,
     pub created_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn link_kind_roundtrips() {
+        let all = [
+            LinkKind::Refines,
+            LinkKind::Supports,
+            LinkKind::Supersedes,
+            LinkKind::Conflicts,
+            LinkKind::Requires,
+            LinkKind::Entails,
+            LinkKind::Excludes,
+        ];
+        for variant in &all {
+            let s = variant.to_string();
+            let parsed: LinkKind = s.parse().unwrap();
+            assert_eq!(&parsed, variant);
+        }
+    }
 }
