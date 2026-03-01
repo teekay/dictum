@@ -10,6 +10,7 @@ pub enum OutputFormat {
     Text,
     Json,
     Jsonl,
+    Compact,
 }
 
 impl OutputFormat {
@@ -18,6 +19,7 @@ impl OutputFormat {
             Some("json") => OutputFormat::Json,
             Some("jsonl") => OutputFormat::Jsonl,
             Some("text") => OutputFormat::Text,
+            Some("compact") => OutputFormat::Compact,
             _ => {
                 if is_tty {
                     OutputFormat::Text
@@ -32,7 +34,7 @@ impl OutputFormat {
 pub fn format_decision(decision: &Decision, links: &[Link], format: &OutputFormat) -> Result<String> {
     match format {
         OutputFormat::Text => Ok(text::format_decision(decision, links)),
-        OutputFormat::Json => json::format_decision(decision, links),
+        OutputFormat::Json | OutputFormat::Compact => json::format_decision(decision, links),
         OutputFormat::Jsonl => json::format_decision_jsonl(decision),
     }
 }
@@ -40,7 +42,7 @@ pub fn format_decision(decision: &Decision, links: &[Link], format: &OutputForma
 pub fn format_decision_list(decisions: &[Decision], format: &OutputFormat) -> Result<String> {
     match format {
         OutputFormat::Text => Ok(text::format_decision_list(decisions)),
-        OutputFormat::Json => json::format_decision_list(decisions),
+        OutputFormat::Json | OutputFormat::Compact => json::format_decision_list(decisions),
         OutputFormat::Jsonl => json::format_decision_list_jsonl(decisions),
     }
 }

@@ -5,30 +5,40 @@ use crate::db;
 use crate::db::decisions::ListFilter;
 use crate::error::Result;
 use crate::format::OutputFormat;
-use crate::model::{Decision, Status};
+use crate::model::{Decision, Kind, Status, Weight};
 
-pub fn run(path: &Path, fmt: Option<String>, is_tty: bool) -> Result<()> {
+pub struct ContextArgs {
+    pub format: Option<String>,
+    pub kind: Option<Kind>,
+    pub weight: Option<Weight>,
+    pub scope: Option<String>,
+}
+
+pub fn run(path: &Path, args: ContextArgs, is_tty: bool) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
     let conn = db::open(&dictum_dir)?;
 
-    // Only active decisions
+    // Only active decisions, with optional filters
     let decisions = db::decisions::list(
         &conn,
         &ListFilter {
             level: None,
             status: Some(Status::Active),
             label: None,
-            kind: None,
-            weight: None,
-            scope: None,
+            kind: args.kind,
+            weight: args.weight,
+            scope: args.scope,
         },
     )?;
 
-    let format = OutputFormat::from_str_or_auto(fmt.as_deref(), is_tty);
+    let format = OutputFormat::from_str_or_auto(args.format.as_deref(), is_tty);
 
     match format {
+        OutputFormat::Compact => {
+            print_compact_context(&conn, &decisions)?;
+        }
         OutputFormat::Json => {
             print_json_context(&conn, &decisions)?;
         }
@@ -37,6 +47,73 @@ pub fn run(path: &Path, fmt: Option<String>, is_tty: bool) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+/// Compact output: minimal fields, single-line JSON, optimized for token efficiency.
+fn print_compact_context(
+    conn: &rusqlite::Connection,
+    decisions: &[Decision],
+) -> Result<()> {
+    // Collect decision IDs in the result set for link filtering
+    let decision_ids: std::collections::HashSet<&str> =
+        decisions.iter().map(|d| d.id.as_str()).collect();
+
+    let mut entries = Vec::new();
+    for d in decisions {
+        let mut obj = serde_json::json!({
+            "id": d.id,
+            "kind": d.kind.to_string(),
+            "weight": d.weight.to_string(),
+            "title": d.title,
+        });
+        let map = obj.as_object_mut().unwrap();
+
+        if let Some(ref scope) = d.scope {
+            map.insert("scope".to_string(), serde_json::Value::String(scope.clone()));
+        }
+        if let Some(ref body) = d.body {
+            map.insert("body".to_string(), serde_json::Value::String(body.clone()));
+        }
+        if let Some(ref rebuttal) = d.rebuttal {
+            map.insert("rebuttal".to_string(), serde_json::Value::String(rebuttal.clone()));
+        }
+        if !d.labels.is_empty() {
+            map.insert("labels".to_string(), serde_json::to_value(&d.labels)?);
+        }
+
+        // Only include links where both ends are in the result set
+        let links = db::links::get_for_decision(conn, &d.id)?;
+        let relevant_links: Vec<serde_json::Value> = links
+            .iter()
+            .filter(|l| decision_ids.contains(l.source_id.as_str()) && decision_ids.contains(l.target_id.as_str()))
+            .map(|l| {
+                let mut link_obj = serde_json::json!({
+                    "kind": l.kind.to_string(),
+                    "target": if l.source_id == d.id { &l.target_id } else { &l.source_id },
+                });
+                if l.source_id != d.id {
+                    link_obj.as_object_mut().unwrap().insert(
+                        "dir".to_string(),
+                        serde_json::Value::String("inbound".to_string()),
+                    );
+                }
+                if let Some(ref reason) = l.reason {
+                    link_obj.as_object_mut().unwrap().insert(
+                        "reason".to_string(),
+                        serde_json::Value::String(reason.clone()),
+                    );
+                }
+                link_obj
+            })
+            .collect();
+        if !relevant_links.is_empty() {
+            map.insert("links".to_string(), serde_json::Value::Array(relevant_links));
+        }
+
+        entries.push(obj);
+    }
+    println!("{}", serde_json::to_string(&entries)?);
     Ok(())
 }
 
@@ -49,7 +126,6 @@ fn print_json_context(
         let links = db::links::get_for_decision(conn, &d.id)?;
         let mut value = serde_json::to_value(d)?;
         if let serde_json::Value::Object(ref mut map) = value {
-            // Only include links that reference other active decisions
             let link_values: Vec<serde_json::Value> = links
                 .iter()
                 .map(|l| {
