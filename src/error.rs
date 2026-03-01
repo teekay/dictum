@@ -20,6 +20,12 @@ pub enum DictumError {
     #[error("invalid link kind: {0}")]
     InvalidLinkKind(String),
 
+    #[error("invalid kind: {0} (expected principle, constraint, assumption, choice, rule, or goal)")]
+    InvalidKind(String),
+
+    #[error("invalid weight: {0} (expected must, should, or may)")]
+    InvalidWeight(String),
+
     #[error("link already exists")]
     LinkAlreadyExists,
 

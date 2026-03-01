@@ -4,7 +4,7 @@ use crate::db;
 use crate::error::Result;
 use crate::model::{Link, LinkKind, Status};
 
-pub fn run_link(path: &Path, source_id: &str, kind: &str, target_id: &str) -> Result<()> {
+pub fn run_link(path: &Path, source_id: &str, kind: &str, target_id: &str, reason: Option<String>) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
@@ -21,6 +21,7 @@ pub fn run_link(path: &Path, source_id: &str, kind: &str, target_id: &str) -> Re
         target_id: target_id.to_string(),
         kind: kind.clone(),
         created_at: now,
+        reason,
     };
     db::links::insert(&conn, &link)?;
 

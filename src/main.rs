@@ -42,6 +42,18 @@ enum Commands {
         /// Output format: text, json, jsonl
         #[arg(long)]
         format: Option<String>,
+        /// Proposition kind: principle, constraint, assumption, choice, rule, goal
+        #[arg(long, default_value = "choice")]
+        kind: String,
+        /// Obligation weight: must, should, may
+        #[arg(long, default_value = "should")]
+        weight: String,
+        /// Condition under which this decision can be overridden
+        #[arg(long)]
+        rebuttal: Option<String>,
+        /// Scope this decision applies to
+        #[arg(long)]
+        scope: Option<String>,
     },
 
     /// Show a decision and its links
@@ -70,16 +82,28 @@ enum Commands {
         /// Output format: text, json, jsonl
         #[arg(long)]
         format: Option<String>,
+        /// Filter by kind
+        #[arg(long)]
+        kind: Option<String>,
+        /// Filter by weight
+        #[arg(long)]
+        weight: Option<String>,
+        /// Filter by scope
+        #[arg(long)]
+        scope: Option<String>,
     },
 
     /// Create a relationship between decisions
     Link {
         /// Source decision ID
         source: String,
-        /// Link kind: refines, supports, supersedes, conflicts, requires
+        /// Link kind: refines, supports, supersedes, conflicts, requires, entails, excludes
         kind: String,
         /// Target decision ID
         target: String,
+        /// Reason for this relationship
+        #[arg(long)]
+        reason: Option<String>,
     },
 
     /// Remove a relationship between decisions
@@ -105,6 +129,18 @@ enum Commands {
         /// Output format: text, json, jsonl
         #[arg(long)]
         format: Option<String>,
+        /// Override proposition kind
+        #[arg(long)]
+        kind: Option<String>,
+        /// Override obligation weight
+        #[arg(long)]
+        weight: Option<String>,
+        /// Override rebuttal condition
+        #[arg(long)]
+        rebuttal: Option<String>,
+        /// Override scope
+        #[arg(long)]
+        scope: Option<String>,
     },
 
     /// Mark a decision as deprecated
@@ -172,9 +208,27 @@ fn main() {
             body,
             author,
             format,
+            kind,
+            weight,
+            rebuttal,
+            scope,
         } => {
             let level = match level.parse() {
                 Ok(l) => l,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            };
+            let kind = match kind.parse() {
+                Ok(k) => k,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            };
+            let weight = match weight.parse() {
+                Ok(w) => w,
                 Err(e) => {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
@@ -190,6 +244,10 @@ fn main() {
                     body,
                     author,
                     format,
+                    kind,
+                    weight,
+                    rebuttal,
+                    scope,
                 },
                 is_tty,
             )
@@ -203,6 +261,9 @@ fn main() {
             status,
             label,
             format,
+            kind,
+            weight,
+            scope,
         } => cli::list::run(
             &cwd,
             cli::list::ListArgs {
@@ -211,6 +272,9 @@ fn main() {
                 status,
                 label,
                 format,
+                kind,
+                weight,
+                scope,
             },
             is_tty,
         ),
@@ -219,7 +283,8 @@ fn main() {
             source,
             kind,
             target,
-        } => cli::link::run_link(&cwd, &source, &kind, &target),
+            reason,
+        } => cli::link::run_link(&cwd, &source, &kind, &target, reason),
 
         Commands::Unlink {
             source,
@@ -232,16 +297,40 @@ fn main() {
             title,
             body,
             format,
-        } => cli::amend::run(
-            &cwd,
-            cli::amend::AmendArgs {
-                id,
-                title,
-                body,
-                format,
-            },
-            is_tty,
-        ),
+            kind,
+            weight,
+            rebuttal,
+            scope,
+        } => {
+            let kind = kind
+                .map(|k| k.parse())
+                .transpose()
+                .unwrap_or_else(|e| {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                });
+            let weight = weight
+                .map(|w| w.parse())
+                .transpose()
+                .unwrap_or_else(|e| {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                });
+            cli::amend::run(
+                &cwd,
+                cli::amend::AmendArgs {
+                    id,
+                    title,
+                    body,
+                    format,
+                    kind,
+                    weight,
+                    rebuttal,
+                    scope,
+                },
+                is_tty,
+            )
+        }
 
         Commands::Deprecate { id, reason, format } => {
             cli::amend::run_deprecate(&cwd, &id, reason, format, is_tty)

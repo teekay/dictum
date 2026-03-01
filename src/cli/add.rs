@@ -5,7 +5,7 @@ use crate::db;
 use crate::error::Result;
 use crate::format::OutputFormat;
 use crate::id::generate_id;
-use crate::model::{Decision, Level, Link, LinkKind, Status};
+use crate::model::{Decision, Kind, Level, Link, LinkKind, Status, Weight};
 
 pub struct AddArgs {
     pub title: String,
@@ -15,6 +15,10 @@ pub struct AddArgs {
     pub body: Option<String>,
     pub author: Option<String>,
     pub format: Option<String>,
+    pub kind: Kind,
+    pub weight: Weight,
+    pub rebuttal: Option<String>,
+    pub scope: Option<String>,
 }
 
 pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
@@ -43,6 +47,10 @@ pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
         created_at: now.clone(),
         updated_at: now.clone(),
         labels: args.label.clone(),
+        kind: args.kind,
+        weight: args.weight,
+        rebuttal: args.rebuttal,
+        scope: args.scope,
     };
 
     db::decisions::insert(&conn, &decision)?;
@@ -62,6 +70,7 @@ pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
             target_id: parent_id.clone(),
             kind: LinkKind::Refines,
             created_at: now,
+            reason: None,
         };
         db::links::insert(&conn, &link)?;
     }

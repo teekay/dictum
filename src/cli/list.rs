@@ -4,7 +4,7 @@ use crate::db;
 use crate::db::decisions::ListFilter;
 use crate::error::Result;
 use crate::format::{self, OutputFormat};
-use crate::model::{Level, Status};
+use crate::model::{Kind, Level, Status, Weight};
 
 pub struct ListArgs {
     pub tree: bool,
@@ -12,6 +12,9 @@ pub struct ListArgs {
     pub status: Option<String>,
     pub label: Option<String>,
     pub format: Option<String>,
+    pub kind: Option<String>,
+    pub weight: Option<String>,
+    pub scope: Option<String>,
 }
 
 pub fn run(path: &Path, args: ListArgs, is_tty: bool) -> Result<()> {
@@ -22,11 +25,16 @@ pub fn run(path: &Path, args: ListArgs, is_tty: bool) -> Result<()> {
 
     let level = args.level.map(|l| l.parse::<Level>()).transpose()?;
     let status = args.status.map(|s| s.parse::<Status>()).transpose()?;
+    let kind = args.kind.map(|k| k.parse::<Kind>()).transpose()?;
+    let weight = args.weight.map(|w| w.parse::<Weight>()).transpose()?;
 
     let filter = ListFilter {
         level,
         status,
         label: args.label,
+        kind,
+        weight,
+        scope: args.scope,
     };
 
     let decisions = db::decisions::list(&conn, &filter)?;
