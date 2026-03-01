@@ -18,9 +18,11 @@ Decisions get lost in chat threads, meeting notes, and commit messages. Dictum g
 
 - **Per-project decision store** in `.dictum/` (SQLite + TOML config)
 - **Hash-based IDs** (e.g. `d-23mpuu`) derived from content, deterministic and short
-- **Decision graph** with typed links: refines, supports, supersedes, conflicts, requires
+- **Typed propositions**: each decision has a kind (principle, constraint, assumption, choice, rule, goal) and weight (must, should, may) — machines reason about each differently
+- **Decision graph** with typed links: refines, supports, supersedes, conflicts, requires, entails, excludes
 - **Lifecycle management**: add, amend (supersede), deprecate
-- **Filtering**: by level, status, label
+- **Filtering**: by level, status, label, kind, weight, scope
+- **LLM-optimized context**: `--format compact` produces minified JSON with only agent-relevant fields
 - **Tree view**: visualize the refines-hierarchy
 - **Full-text search** across titles and bodies
 - **JSONL export/import** for portability and git-tracking
@@ -32,6 +34,10 @@ Decisions get lost in chat threads, meeting notes, and commit messages. Dictum g
 dictum init                                  # Initialize .dictum/ in current directory
 dictum add "statement" [options]             # Add a decision
   --level strategic|tactical|operational     #   (default: tactical)
+  --kind principle|constraint|assumption|choice|rule|goal  # (default: choice)
+  --weight must|should|may                   #   (default: should)
+  --scope "area"                             #   Where this applies
+  --rebuttal "condition"                     #   When this can be overridden
   --parent <id>                              #   Creates a "refines" link
   --label <label>                            #   Tag it (repeatable)
   --body "rationale"                         #   Longer explanation
@@ -39,21 +45,26 @@ dictum add "statement" [options]             # Add a decision
 
 dictum show <id>                             # Show decision + its links
 dictum list [--tree] [--level X] [--status X] [--label X]
+         [--kind X] [--weight X] [--scope X]
 dictum tree                                  # Visual refines-hierarchy
 
-dictum link <id> <kind> <id>                 # Create a relationship
-dictum unlink <id> <kind> <id>               # Remove a relationship
-  # kinds: refines, supports, supersedes, conflicts, requires
+dictum link <id> <kind> <id> [--reason "why"]  # Create a relationship
+dictum unlink <id> <kind> <id>                 # Remove a relationship
+  # kinds: refines, supports, supersedes, conflicts, requires, entails, excludes
 
 dictum amend <id> [--title "new"] [--body "why"]   # Supersede a decision
+         [--kind X] [--weight X] [--scope X] [--rebuttal "condition"]
 dictum deprecate <id> [--reason "why"]              # Mark as deprecated
 dictum query "search text"                          # Search decisions
+
+dictum context [--format text|json|compact]    # Active decisions for LLM agents
+         [--kind X] [--weight X] [--scope X]   #   Filter to what's relevant
 
 dictum export [-o file]                      # Export to JSONL (default: stdout)
 dictum import [-i file] [--dry-run]          # Import from JSONL (default: stdin)
 ```
 
-All commands that produce output accept `--format text|json|jsonl`.
+All commands that produce output accept `--format text|json|jsonl`. The `context` command also supports `--format compact` for token-efficient LLM consumption.
 
 ## Build
 
@@ -75,11 +86,13 @@ cp target/release/dictum ~/.local/bin/
 ```
 mkdir /tmp/my-project && cd /tmp/my-project
 dictum init
-dictum add "We serve restaurant owners" --level strategic
+dictum add "We serve restaurant owners" --level strategic --kind principle --weight must
 dictum add "Single-click booking" --level tactical --parent d-<id>
+dictum add "Never store PII in logs" --kind rule --weight must --scope logging
 dictum tree
-dictum list
-dictum export | dictum import --dry-run
+dictum list --kind rule --weight must
+dictum context --format compact --scope logging
+dictum export | dictum import -i /dev/stdin --dry-run
 ```
 
 ## Storage

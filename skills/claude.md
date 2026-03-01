@@ -16,10 +16,17 @@ This project tracks decisions using [dictum](https://github.com/teekay/dictum). 
 
 ## How to check
 
-Load all active decisions into context:
+Load decisions relevant to your current task (preferred — token-efficient):
 
 ```bash
-dictum context --format json
+dictum context --format compact --scope db
+dictum context --format compact --kind rule --weight must
+```
+
+Load all active decisions:
+
+```bash
+dictum context --format compact
 ```
 
 Search for decisions related to your current work:
@@ -28,23 +35,16 @@ Search for decisions related to your current work:
 dictum query "search terms" --format json
 ```
 
-Filter by proposition type or obligation:
+Show a specific decision and its links:
 
 ```bash
-dictum list --kind rule --weight must --format json
-dictum list --scope auth --format json
+dictum show <id> --format json
 ```
 
 View the decision hierarchy:
 
 ```bash
 dictum tree
-```
-
-Show a specific decision and its links:
-
-```bash
-dictum show <id> --format json
 ```
 
 ## Decision levels
@@ -127,4 +127,8 @@ dictum add "description of the decision" --level tactical --kind choice --weight
 
 ## Output format
 
-Always use `--format json` when calling dictum so you get structured, parseable output. The text format is for humans at a terminal.
+Use `--format compact` for `context` calls — it produces minified JSON with only the fields you need (id, kind, weight, title, scope, body, rebuttal, labels, relevant links). This saves tokens significantly.
+
+Use `--format json` for `show` and `query` calls where you need full detail.
+
+The text format is for humans at a terminal.

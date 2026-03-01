@@ -186,9 +186,18 @@ enum Commands {
 
     /// Dump active decisions as compact context for LLM agents
     Context {
-        /// Output format: text, json
+        /// Output format: text, json, compact
         #[arg(long)]
         format: Option<String>,
+        /// Filter by kind
+        #[arg(long)]
+        kind: Option<String>,
+        /// Filter by weight
+        #[arg(long)]
+        weight: Option<String>,
+        /// Filter by scope
+        #[arg(long)]
+        scope: Option<String>,
     },
 }
 
@@ -343,7 +352,23 @@ fn main() {
         Commands::Export { o } => cli::io::run_export(&cwd, o),
         Commands::Import { i, dry_run } => cli::io::run_import(&cwd, i, dry_run),
         Commands::Tree => cli::list::run_tree(&cwd),
-        Commands::Context { format } => cli::context::run(&cwd, format, is_tty),
+        Commands::Context { format, kind, weight, scope } => {
+            let kind = kind
+                .map(|k| k.parse())
+                .transpose()
+                .unwrap_or_else(|e| {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                });
+            let weight = weight
+                .map(|w| w.parse())
+                .transpose()
+                .unwrap_or_else(|e| {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                });
+            cli::context::run(&cwd, cli::context::ContextArgs { format, kind, weight, scope }, is_tty)
+        }
     };
 
     if let Err(e) = result {
