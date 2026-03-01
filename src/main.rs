@@ -9,7 +9,7 @@ mod model;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "dictum", about = "Track decisions over time", version)]
+#[command(name = "dictum", about = "Track decisions over time", version, infer_subcommands = true)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -20,6 +20,54 @@ enum Commands {
     /// Initialize .dictum/ in current directory
     Init,
 
+    /// Manage decisions
+    Decision {
+        #[command(subcommand)]
+        command: DecisionCommands,
+    },
+
+    /// Manage links between decisions
+    Link {
+        #[command(subcommand)]
+        command: LinkCommands,
+    },
+
+    /// Dump active decisions as compact context for LLM agents
+    Context {
+        /// Output format: text, json, compact
+        #[arg(long)]
+        format: Option<String>,
+        /// Filter by kind
+        #[arg(long)]
+        kind: Option<String>,
+        /// Filter by weight
+        #[arg(long)]
+        weight: Option<String>,
+        /// Filter by scope
+        #[arg(long)]
+        scope: Option<String>,
+    },
+
+    /// Export full graph to JSONL
+    Export {
+        /// Output file (default: stdout)
+        #[arg(short)]
+        o: Option<String>,
+    },
+
+    /// Import from JSONL
+    Import {
+        /// Input file (default: stdin)
+        #[arg(short)]
+        i: Option<String>,
+        /// Preview only
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum DecisionCommands {
     /// Add a decision
     Add {
         /// Decision statement
@@ -93,28 +141,8 @@ enum Commands {
         scope: Option<String>,
     },
 
-    /// Create a relationship between decisions
-    Link {
-        /// Source decision ID
-        source: String,
-        /// Link kind: refines, supports, supersedes, conflicts, requires, entails, excludes
-        kind: String,
-        /// Target decision ID
-        target: String,
-        /// Reason for this relationship
-        #[arg(long)]
-        reason: Option<String>,
-    },
-
-    /// Remove a relationship between decisions
-    Unlink {
-        /// Source decision ID
-        source: String,
-        /// Link kind
-        kind: String,
-        /// Target decision ID
-        target: String,
-    },
+    /// Visual tree of decisions (refines hierarchy)
+    Tree,
 
     /// Supersede a decision with a new one
     Amend {
@@ -163,41 +191,31 @@ enum Commands {
         #[arg(long)]
         format: Option<String>,
     },
+}
 
-    /// Export full graph to JSONL
-    Export {
-        /// Output file (default: stdout)
-        #[arg(short)]
-        o: Option<String>,
+#[derive(Subcommand)]
+enum LinkCommands {
+    /// Create a relationship between decisions
+    Add {
+        /// Source decision ID
+        source: String,
+        /// Link kind: refines, supports, supersedes, conflicts, requires, entails, excludes
+        kind: String,
+        /// Target decision ID
+        target: String,
+        /// Reason for this relationship
+        #[arg(long)]
+        reason: Option<String>,
     },
 
-    /// Import from JSONL
-    Import {
-        /// Input file (default: stdin)
-        #[arg(short)]
-        i: Option<String>,
-        /// Preview only
-        #[arg(long)]
-        dry_run: bool,
-    },
-
-    /// Visual tree of decisions (refines hierarchy)
-    Tree,
-
-    /// Dump active decisions as compact context for LLM agents
-    Context {
-        /// Output format: text, json, compact
-        #[arg(long)]
-        format: Option<String>,
-        /// Filter by kind
-        #[arg(long)]
-        kind: Option<String>,
-        /// Filter by weight
-        #[arg(long)]
-        weight: Option<String>,
-        /// Filter by scope
-        #[arg(long)]
-        scope: Option<String>,
+    /// Remove a relationship between decisions
+    Remove {
+        /// Source decision ID
+        source: String,
+        /// Link kind
+        kind: String,
+        /// Target decision ID
+        target: String,
     },
 }
 
@@ -209,73 +227,63 @@ fn main() {
     let result = match cli.command {
         Commands::Init => cli::init::run(&cwd),
 
-        Commands::Add {
-            title,
-            level,
-            parent,
-            label,
-            body,
-            author,
-            format,
-            kind,
-            weight,
-            rebuttal,
-            scope,
-        } => {
-            let level = match level.parse() {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
-            };
-            let kind = match kind.parse() {
-                Ok(k) => k,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
-            };
-            let weight = match weight.parse() {
-                Ok(w) => w,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                }
-            };
-            cli::add::run(
-                &cwd,
-                cli::add::AddArgs {
-                    title,
-                    level,
-                    parent,
-                    label,
-                    body,
-                    author,
-                    format,
-                    kind,
-                    weight,
-                    rebuttal,
-                    scope,
-                },
-                is_tty,
-            )
-        }
+        Commands::Decision { command } => match command {
+            DecisionCommands::Add {
+                title,
+                level,
+                parent,
+                label,
+                body,
+                author,
+                format,
+                kind,
+                weight,
+                rebuttal,
+                scope,
+            } => {
+                let level = match level.parse() {
+                    Ok(l) => l,
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+                let kind = match kind.parse() {
+                    Ok(k) => k,
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+                let weight = match weight.parse() {
+                    Ok(w) => w,
+                    Err(e) => {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                };
+                cli::add::run(
+                    &cwd,
+                    cli::add::AddArgs {
+                        title,
+                        level,
+                        parent,
+                        label,
+                        body,
+                        author,
+                        format,
+                        kind,
+                        weight,
+                        rebuttal,
+                        scope,
+                    },
+                    is_tty,
+                )
+            }
 
-        Commands::Show { id, format } => cli::show::run(&cwd, &id, format, is_tty),
+            DecisionCommands::Show { id, format } => cli::show::run(&cwd, &id, format, is_tty),
 
-        Commands::List {
-            tree,
-            level,
-            status,
-            label,
-            format,
-            kind,
-            weight,
-            scope,
-        } => cli::list::run(
-            &cwd,
-            cli::list::ListArgs {
+            DecisionCommands::List {
                 tree,
                 level,
                 status,
@@ -284,31 +292,91 @@ fn main() {
                 kind,
                 weight,
                 scope,
-            },
-            is_tty,
-        ),
+            } => cli::list::run(
+                &cwd,
+                cli::list::ListArgs {
+                    tree,
+                    level,
+                    status,
+                    label,
+                    format,
+                    kind,
+                    weight,
+                    scope,
+                },
+                is_tty,
+            ),
 
-        Commands::Link {
-            source,
-            kind,
-            target,
-            reason,
-        } => cli::link::run_link(&cwd, &source, &kind, &target, reason),
+            DecisionCommands::Tree => cli::list::run_tree(&cwd),
 
-        Commands::Unlink {
-            source,
-            kind,
-            target,
-        } => cli::link::run_unlink(&cwd, &source, &kind, &target),
+            DecisionCommands::Amend {
+                id,
+                title,
+                body,
+                format,
+                kind,
+                weight,
+                rebuttal,
+                scope,
+            } => {
+                let kind = kind
+                    .map(|k| k.parse())
+                    .transpose()
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    });
+                let weight = weight
+                    .map(|w| w.parse())
+                    .transpose()
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    });
+                cli::amend::run(
+                    &cwd,
+                    cli::amend::AmendArgs {
+                        id,
+                        title,
+                        body,
+                        format,
+                        kind,
+                        weight,
+                        rebuttal,
+                        scope,
+                    },
+                    is_tty,
+                )
+            }
 
-        Commands::Amend {
-            id,
-            title,
-            body,
+            DecisionCommands::Deprecate { id, reason, format } => {
+                cli::amend::run_deprecate(&cwd, &id, reason, format, is_tty)
+            }
+
+            DecisionCommands::Query { question, format } => {
+                cli::query::run(&cwd, &question, format, is_tty)
+            }
+        },
+
+        Commands::Link { command } => match command {
+            LinkCommands::Add {
+                source,
+                kind,
+                target,
+                reason,
+            } => cli::link::run_link(&cwd, &source, &kind, &target, reason),
+
+            LinkCommands::Remove {
+                source,
+                kind,
+                target,
+            } => cli::link::run_unlink(&cwd, &source, &kind, &target),
+        },
+
+        Commands::Context {
             format,
             kind,
             weight,
-            rebuttal,
             scope,
         } => {
             let kind = kind
@@ -325,50 +393,20 @@ fn main() {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
                 });
-            cli::amend::run(
+            cli::context::run(
                 &cwd,
-                cli::amend::AmendArgs {
-                    id,
-                    title,
-                    body,
+                cli::context::ContextArgs {
                     format,
                     kind,
                     weight,
-                    rebuttal,
                     scope,
                 },
                 is_tty,
             )
         }
 
-        Commands::Deprecate { id, reason, format } => {
-            cli::amend::run_deprecate(&cwd, &id, reason, format, is_tty)
-        }
-
-        Commands::Query { question, format } => {
-            cli::query::run(&cwd, &question, format, is_tty)
-        }
-
         Commands::Export { o } => cli::io::run_export(&cwd, o),
         Commands::Import { i, dry_run } => cli::io::run_import(&cwd, i, dry_run),
-        Commands::Tree => cli::list::run_tree(&cwd),
-        Commands::Context { format, kind, weight, scope } => {
-            let kind = kind
-                .map(|k| k.parse())
-                .transpose()
-                .unwrap_or_else(|e| {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                });
-            let weight = weight
-                .map(|w| w.parse())
-                .transpose()
-                .unwrap_or_else(|e| {
-                    eprintln!("Error: {}", e);
-                    std::process::exit(1);
-                });
-            cli::context::run(&cwd, cli::context::ContextArgs { format, kind, weight, scope }, is_tty)
-        }
     };
 
     if let Err(e) = result {

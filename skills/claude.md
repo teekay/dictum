@@ -32,19 +32,19 @@ dictum context --format compact
 Search for decisions related to your current work:
 
 ```bash
-dictum query "search terms" --format json
+dictum decision query "search terms" --format json
 ```
 
 Show a specific decision and its links:
 
 ```bash
-dictum show <id> --format json
+dictum decision show <id> --format json
 ```
 
 View the decision hierarchy:
 
 ```bash
-dictum tree
+dictum decision tree
 ```
 
 ## Decision levels
@@ -94,7 +94,7 @@ Each decision has a `weight` that tells you how binding it is:
 You are the guardian of the project's ubiquitous language. Scopes, labels, and terminology in decision titles form the domain vocabulary. Your job is to keep it consistent.
 
 **Before creating or amending a decision:**
-1. Check existing scopes and labels (`dictum list --format json`, `dictum context --format json`)
+1. Check existing scopes and labels (`dictum decision list --format json`, `dictum context --format json`)
 2. If the user's term is a synonym of an established one (e.g. `database` when `db` is already in use), suggest the established term
 3. If a term is genuinely new, use it — but mention you're introducing new vocabulary
 4. If unsure whether two terms refer to the same concept, ask the human
@@ -122,7 +122,7 @@ Flag it immediately. Quote the decision ID and explain what evidence contradicts
 **If you make a significant choice and no decision covers it:**
 Suggest the user add one:
 ```
-dictum add "description of the decision" --level tactical --kind choice --weight should
+dictum decision add "description of the decision" --level tactical --kind choice --weight should
 ```
 
 ## Output format
