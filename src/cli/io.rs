@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::Path;
 
 use crate::db;
@@ -38,7 +38,7 @@ pub fn run_import(path: &Path, input_file: Option<String>, dry_run: bool) -> Res
     let reader: Box<dyn BufRead> = match input_file {
         Some(ref f) => Box::new(io::BufReader::new(std::fs::File::open(f)?)),
         None => {
-            if atty::is(atty::Stream::Stdin) {
+            if std::io::stdin().is_terminal() {
                 eprintln!("Error: no input file specified and stdin is a terminal");
                 eprintln!("Usage: dictum import -i <file>  or  cat file.jsonl | dictum import");
                 std::process::exit(1);
