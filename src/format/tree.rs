@@ -2,15 +2,19 @@ use std::collections::{HashMap, HashSet};
 
 use crate::model::Decision;
 
-pub fn format_tree(decisions: &[Decision], refines_links: &[(String, String)]) -> String {
-    if decisions.is_empty() {
-        return "No decisions found.\n".to_string();
-    }
+pub struct TreeStructure<'a> {
+    pub children_map: HashMap<&'a str, Vec<&'a str>>,
+    pub roots: Vec<&'a str>,
+    pub decision_map: HashMap<&'a str, &'a Decision>,
+}
 
+pub fn build_tree<'a>(
+    decisions: &'a [Decision],
+    refines_links: &'a [(String, String)],
+) -> TreeStructure<'a> {
     let decision_map: HashMap<&str, &Decision> =
         decisions.iter().map(|d| (d.id.as_str(), d)).collect();
 
-    // Build parent -> children map (refines: source refines target, so target is parent)
     let mut children_map: HashMap<&str, Vec<&str>> = HashMap::new();
     let mut has_parent: HashSet<&str> = HashSet::new();
 
@@ -22,7 +26,6 @@ pub fn format_tree(decisions: &[Decision], refines_links: &[(String, String)]) -
         has_parent.insert(source.as_str());
     }
 
-    // Find roots (decisions with no parent in the refines hierarchy)
     let mut roots: Vec<&str> = decisions
         .iter()
         .filter(|d| !has_parent.contains(d.id.as_str()))
@@ -30,16 +33,30 @@ pub fn format_tree(decisions: &[Decision], refines_links: &[(String, String)]) -
         .collect();
     roots.sort();
 
+    TreeStructure {
+        children_map,
+        roots,
+        decision_map,
+    }
+}
+
+pub fn format_tree(decisions: &[Decision], refines_links: &[(String, String)]) -> String {
+    if decisions.is_empty() {
+        return "No decisions found.\n".to_string();
+    }
+
+    let tree = build_tree(decisions, refines_links);
+
     let mut out = String::new();
-    for (i, root) in roots.iter().enumerate() {
-        let is_last = i == roots.len() - 1;
+    for (i, root) in tree.roots.iter().enumerate() {
+        let is_last = i == tree.roots.len() - 1;
         format_node(
             &mut out,
             root,
             "",
             is_last,
-            &decision_map,
-            &children_map,
+            &tree.decision_map,
+            &tree.children_map,
             true,
         );
     }

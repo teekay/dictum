@@ -5,6 +5,10 @@ mod error;
 mod format;
 mod id;
 mod model;
+#[cfg(feature = "tui")]
+mod tui;
+
+use std::io::IsTerminal;
 
 use clap::{Parser, Subcommand};
 
@@ -47,6 +51,10 @@ enum Commands {
         #[arg(long)]
         scope: Option<String>,
     },
+
+    /// Interactive terminal UI for browsing decisions
+    #[cfg(feature = "tui")]
+    Tui,
 
     /// Export full graph to JSONL
     Export {
@@ -222,7 +230,7 @@ enum LinkCommands {
 fn main() {
     let cli = Cli::parse();
     let cwd = std::env::current_dir().expect("cannot determine current directory");
-    let is_tty = atty::is(atty::Stream::Stdout);
+    let is_tty = std::io::stdout().is_terminal();
 
     let result = match cli.command {
         Commands::Init => cli::init::run(&cwd),
@@ -404,6 +412,9 @@ fn main() {
                 is_tty,
             )
         }
+
+        #[cfg(feature = "tui")]
+        Commands::Tui => tui::run(&cwd),
 
         Commands::Export { o } => cli::io::run_export(&cwd, o),
         Commands::Import { i, dry_run } => cli::io::run_import(&cwd, i, dry_run),
