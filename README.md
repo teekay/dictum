@@ -6,6 +6,8 @@ AI coding agents and humans use it to resolve ambiguity by checking prior decisi
 
 Inspired by Steve Yegge's [Beads](https://github.com/steveyegge/beads).
 
+**DISCLAIMER** - this is very early stage and unproven. Dog-fooding to find out if it can back its claims and aspirations.
+
 ## Why
 
 Issues are downstream of decisions. With the ever-expanding amount of code we generate, it's easy to lose track of "why" we're doing what we're doing.
@@ -45,6 +47,7 @@ dictum decision add "statement" [options]           # Add a decision
   --label <label>                                   #   Tag it (repeatable)
   --body "rationale"                                #   Longer explanation
   --author "name"                                   #   Who decided
+  --format text|json|jsonl                          #   Output format
 
 dictum decision show <id>                           # Show decision + its links
 dictum decision list [--tree] [--level X] [--status X] [--label X]
@@ -62,11 +65,13 @@ dictum link remove <id> <kind> <id>                  # Remove a relationship
 dictum context [--format text|json|compact]          # Active decisions for LLM agents
          [--kind X] [--weight X] [--scope X]         #   Filter to what's relevant
 
+dictum tui                                          # Interactive terminal UI (requires tui feature)
+
 dictum export [-o file]                              # Export to JSONL (default: stdout)
 dictum import [-i file] [--dry-run]                  # Import from JSONL (default: stdin)
 ```
 
-All commands that produce output accept `--format text|json|jsonl`. The `context` command also supports `--format compact` for token-efficient LLM consumption.
+All commands that produce output accept `--format text|json|jsonl`. The `context` command supports `--format text|json|compact` (`compact` produces minified JSON with only agent-relevant fields).
 
 ## Build
 
@@ -75,6 +80,12 @@ Requires [Rust](https://rustup.rs/) (1.70+).
 ```
 cd dictum
 cargo build --release
+```
+
+To include the interactive terminal UI (ratatui-based):
+
+```
+cargo build --release --features tui
 ```
 
 The binary is at `target/release/dictum`. Copy it somewhere on your PATH:
