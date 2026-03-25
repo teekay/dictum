@@ -63,6 +63,19 @@ enum Commands {
         o: Option<String>,
     },
 
+    /// Generate an HTML report of decisions
+    Report {
+        /// Include deprecated and superseded decisions
+        #[arg(long)]
+        all: bool,
+        /// Output file (default: stdout)
+        #[arg(short)]
+        o: Option<String>,
+        /// Custom HTML template file
+        #[arg(long)]
+        template: Option<String>,
+    },
+
     /// Import from JSONL
     Import {
         /// Input file (default: stdin)
@@ -417,6 +430,7 @@ fn main() {
         Commands::Tui => tui::run(&cwd),
 
         Commands::Export { o } => cli::io::run_export(&cwd, o),
+        Commands::Report { all, o, template } => cli::report::run(&cwd, all, o, template),
         Commands::Import { i, dry_run } => cli::io::run_import(&cwd, i, dry_run),
     };
 

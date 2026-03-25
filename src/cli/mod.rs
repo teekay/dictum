@@ -6,6 +6,7 @@ pub mod io;
 pub mod link;
 pub mod list;
 pub mod query;
+pub mod report;
 pub mod show;
 
 use std::path::Path;

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision Matrix</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f4f4f4;--surface:#ffffff;--surface-raised:#f9f9f9;
+  --text:#141414;--text-2:#525252;--text-3:#9a9a9a;
+  --accent:#cc2222;--accent-light:#fce8e8;--accent-glow:rgba(204,34,34,.16);
+  --border:#e2e2e2;--border-strong:#c8c8c8;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04);--shadow:0 2px 8px rgba(0,0,0,.06);--shadow-lg:0 8px 24px rgba(0,0,0,.09);
+  --active-bg:#e6e6e6;--active-text:#303030;
+  --deprecated-bg:#ececec;--deprecated-text:#888;
+  --superseded-bg:#ececec;--superseded-text:#888;
+  --must-bg:#e4e4e4;--must-text:#141414;
+  --should-bg:#e4e4e4;--should-text:#404040;
+  --may-bg:#efefef;--may-text:#737373;
+  --kind-bg:#e4e4e4;--kind-text:#444;
+  --radius:6px;
+  --font-display:'DM Serif Display',Georgia,'Times New Roman',serif;
+  --font-body:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Cascadia Code','Fira Code',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:1000}
+
+/* Layout */
+.container{max-width:100%;margin:0 auto;padding:0 24px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:28px 0 24px;margin-bottom:24px;box-shadow:var(--shadow-sm)}
+.header-content{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.header-left{display:flex;flex-direction:column;gap:2px}
+header h1{font-family:var(--font-display);font-size:1.85rem;font-weight:400;letter-spacing:-.01em;color:var(--text)}
+.subtitle{font-family:var(--font-body);font-size:.7rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text-3)}
+.meta-pills{display:flex;gap:8px;flex-wrap:wrap;align-self:flex-end}
+.pill{display:inline-flex;align-items:center;padding:3px 11px;border-radius:20px;font-size:.75rem;font-weight:600;background:var(--border);color:var(--text-2);letter-spacing:.01em}
+.pill.active{background:var(--active-bg);color:var(--active-text)}
+.pill.deprecated{background:var(--deprecated-bg);color:var(--deprecated-text)}
+.pill.superseded{background:var(--superseded-bg);color:var(--superseded-text)}
+
+/* Kind filters */
+.kind-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.kind-filter{display:inline-flex;align-items:center;padding:5px 14px;border-radius:20px;font-size:.8rem;font-weight:600;background:var(--kind-bg);color:var(--kind-text);cursor:pointer;user-select:none;transition:all .15s ease;border:1.5px solid transparent}
+.kind-filter:hover{background:var(--border-strong);transform:translateY(-1px);box-shadow:var(--shadow)}
+.kind-filter:active{transform:translateY(0)}
+.kind-filter.on{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 2px 10px var(--accent-glow)}
+
+/* Three-column layout */
+.layout{display:grid;grid-template-columns:30% 40% 30%;gap:16px;align-items:start}
+.layout.collapsed{grid-template-columns:36px 1fr 30%}
+@media(max-width:860px){.layout{grid-template-columns:1fr}.layout.collapsed{grid-template-columns:1fr}}
+
+/* Sidebar */
+.sidebar{min-width:0;overflow:hidden}
+.sidebar-header{display:flex;align-items:center;gap:4px;margin-bottom:10px}
+.sidebar-header .tabs{flex:1;margin-bottom:0;border-bottom-width:1px}
+.sidebar-header .tab{padding:6px 10px;font-size:.76rem}
+.sidebar-toggle{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;padding:5px 7px;color:var(--text-3);font-size:.7rem;line-height:1;transition:all .12s;flex-shrink:0}
+.sidebar-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.layout.collapsed .sidebar .tabs,.layout.collapsed .master{display:none}
+
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1.5px solid var(--border)}
+.tab{padding:9px 18px;cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1.5px;user-select:none;transition:color .12s;letter-spacing:.01em}
+.tab:hover{color:var(--text-2)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Master list */
+.master{max-height:calc(100vh - 300px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent}
+.master::-webkit-scrollbar{width:5px}
+.master::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+
+/* Groups */
+.group{margin-bottom:10px}
+.group-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-weight:700;font-size:.82rem;user-select:none;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);transition:background .12s,border-color .12s}
+.group-header:hover{background:var(--surface-raised);border-color:var(--border-strong)}
+.group-header .count{font-weight:500;color:var(--text-3);font-size:.78rem;letter-spacing:0;text-transform:none}
+.group-header .arrow{transition:transform .2s ease;font-size:.6rem;color:var(--text-3)}
+.group-header .cascade-info{font-weight:500;font-size:.72rem;color:var(--accent);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50%;letter-spacing:0;text-transform:none;font-style:italic}
+.group.collapsed .arrow{transform:rotate(-90deg)}
+.group.collapsed .group-items{display:none}
+.group-items{padding:4px 0 0}
+
+/* Rows */
+.row{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius);cursor:pointer;font-size:.86rem;transition:all .1s ease;border-left:3px solid transparent;font-weight:500}
+.row:hover{background:var(--surface);border-left-color:var(--border-strong);box-shadow:var(--shadow-sm)}
+.row.selected{background:var(--accent-light);border-left-color:var(--accent)}
+.row.cascade-anchor{background:var(--accent-light);border-left-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-light)}
+.row .title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.inactive .title{opacity:.45;text-decoration:line-through}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-family:var(--font-mono)}
+.badge.kind{background:var(--kind-bg);color:var(--kind-text)}
+.badge.weight-must{background:var(--must-bg);color:var(--must-text);font-weight:700}
+.badge.weight-should{background:var(--should-bg);color:var(--should-text);font-weight:500}
+.badge.weight-may{background:var(--may-bg);color:var(--may-text);font-weight:400}
+
+/* Diagram */
+.diagram{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-height:300px;max-height:calc(100vh - 200px);overflow:auto;position:relative;box-shadow:var(--shadow-sm);cursor:grab}
+.diagram-inner{padding:16px}
+.diagram-inner svg{max-width:100%;height:auto;display:block}
+.diagram .node{cursor:pointer}
+@keyframes nodeGlow{0%,100%{filter:drop-shadow(0 0 3px var(--accent-glow))}50%{filter:drop-shadow(0 0 8px var(--accent-glow))}}
+.diagram .node.highlighted{animation:nodeGlow 2s ease-in-out infinite}
+.diagram .node.highlighted rect,
+.diagram .node.highlighted polygon,
+.diagram .node.highlighted circle,
+.diagram .node.highlighted .label-container{stroke:var(--accent) !important;stroke-width:2.5px !important;fill:var(--accent-light) !important}
+.diagram .node.highlighted .nodeLabel{font-weight:700 !important}
+.diagram .cluster rect{fill:var(--surface-raised) !important;stroke:var(--border) !important;rx:6 !important}
+.diagram .cluster span{font-family:var(--font-body) !important;font-weight:700 !important;font-size:.72rem !important;text-transform:uppercase !important;letter-spacing:.08em !important;fill:var(--text-3) !important;color:var(--text-3) !important}
+.diagram-toolbar{position:sticky;top:2px;left:2px;z-index:1;display:flex;gap:6px;align-items:center;pointer-events:none;margin:2px 0 -1.5rem 2px}
+.zoom-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-family:var(--font-mono);font-weight:600;color:var(--text-3);background:var(--surface);border:1px solid var(--border);opacity:0;transition:opacity .2s}
+.zoom-badge.visible{opacity:1}
+.flow-toggle{pointer-events:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:1rem;color:var(--text-3);cursor:pointer;transition:all .12s;line-height:1}
+.flow-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+
+/* Detail panel */
+@keyframes detailIn{from{opacity:0}to{opacity:1}}
+.detail{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:24px;position:sticky;top:20px;max-height:calc(100vh - 300px);overflow-y:auto;box-shadow:var(--shadow);scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent}
+.detail.has-content{animation:detailIn .15s ease}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+.detail h2{font-family:var(--font-display);font-size:1.2rem;font-weight:400;margin:0 0 4px;color:var(--text);line-height:1.3}
+.detail-id{font-family:var(--font-mono);font-size:.78rem;color:var(--text-3);margin-bottom:16px;letter-spacing:.02em}
+.detail-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.detail-body{white-space:pre-wrap;background:var(--surface-raised);border:1px solid var(--border);padding:14px 16px;border-radius:var(--radius);font-size:.86rem;margin-bottom:20px;line-height:1.65;color:var(--text-2)}
+.detail-field{margin-bottom:14px}
+.detail-field .label{font-weight:700;font-size:.72rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.detail-field .value{font-size:.88rem;color:var(--text);line-height:1.55}
+.detail-links{margin-top:16px}
+.detail-links table{width:100%;border-collapse:collapse;font-size:.82rem}
+.detail-links th{text-align:left;font-weight:700;font-size:.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;padding:6px 10px;border-bottom:1.5px solid var(--border)}
+.detail-links td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text-2);font-family:var(--font-mono);font-size:.78rem}
+
+/* Status banners */
+.status-banner{padding:10px 14px;border-radius:var(--radius);margin-bottom:16px;font-size:.82rem;font-weight:700;letter-spacing:.02em}
+.status-banner.deprecated{background:var(--deprecated-bg);color:var(--deprecated-text)}
+.status-banner.superseded{background:var(--superseded-bg);color:var(--superseded-text)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 16px;color:var(--text-3);font-size:.92rem;font-weight:500}
+</style>
+</head>
+<body>
+<header>
+<div class="container">
+<div class="header-content">
+<div class="header-left">
+<h1 id="report-title">Decision Matrix</h1>
+<div class="subtitle">DECISION MATRIX</div>
+</div>
+<div class="meta-pills" id="header-pills"></div>
+</div>
+</div>
+</header>
+<div class="container">
+<div class="kind-filters" id="kind-filters"></div>
+<div class="layout" id="layout">
+<div class="sidebar">
+<div class="sidebar-header">
+<div class="tabs" id="tabs"></div>
+<button class="sidebar-toggle" id="sidebar-toggle" title="Toggle list panel">&#9664;</button>
+</div>
+<div class="master" id="master"></div>
+</div>
+<div class="diagram" id="diagram"><div class="diagram-toolbar"><button class="flow-toggle" id="flow-toggle" title="Toggle layout direction">&#x25BC;</button><span class="zoom-badge" id="zoom-badge">100%</span></div><div class="diagram-inner" id="diagram-inner"><div class="empty-state">Loading diagram&hellip;</div></div></div>
+<div class="detail" id="detail"><div class="empty-state">Select a decision</div></div>
+</div>
+</div>
+<script>
+const DICTUM_DATA = /*__DICTUM_DATA__*/null;
+{
+  const $ = id => document.getElementById(id);
+
+  // Sidebar toggle — always wire up even on empty state
+  let sidebarOpen = true;
+  $('sidebar-toggle').onclick = () => {
+    sidebarOpen = !sidebarOpen;
+    $('layout').classList.toggle('collapsed', !sidebarOpen);
+    $('sidebar-toggle').innerHTML = sidebarOpen ? '&#9664;' : '&#9654;';
+  };
+
+  if (!DICTUM_DATA?.decisions) {
+    $('master').innerHTML = '<div class="empty-state">No decisions found</div>';
+    $('header-pills').innerHTML = '<span class="pill">0 decisions</span>';
+    $('diagram-inner').innerHTML = '<div class="empty-state">No decisions to display</div>';
+    window.initDiagram = () => {};
+    window.diagramUnavailable = () => {};
+  } else {
+    const { meta, decisions } = DICTUM_DATA;
+    const LEVEL_ORDER = ['strategic', 'tactical', 'operational'];
+
+    const esc = s => s == null ? '' : String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const mermaidSafe = s => {
+      const t = s.length > 40 ? s.slice(0, 37) + '...' : s;
+      return t.replace(/"/g, "'").replace(/[<>{}|#&;]/g, ' ');
+    };
+
+    // Title
+    const projectName = meta.project_name || 'PROJECT';
+    $('report-title').textContent = projectName;
+    document.title = `${projectName} — Decision Matrix`;
+
+    // Header pills
+    $('header-pills').innerHTML = `<span class="pill">${meta.total} total</span>`
+      + (meta.active ? `<span class="pill active">${meta.active} active</span>` : '')
+      + (meta.deprecated ? `<span class="pill deprecated">${meta.deprecated} deprecated</span>` : '')
+      + (meta.superseded ? `<span class="pill superseded">${meta.superseded} superseded</span>` : '');
+
+    // Adjacency graph for cascade traversal
+    const adj = new Map();
+    const byId = new Map();
+    for (const d of decisions) {
+      byId.set(d.id, d);
+      for (const l of d.links ?? []) {
+        if (!adj.has(l.source_id)) adj.set(l.source_id, new Set());
+        if (!adj.has(l.target_id)) adj.set(l.target_id, new Set());
+        adj.get(l.source_id).add(l.target_id);
+        adj.get(l.target_id).add(l.source_id);
+      }
+    }
+
+    const reachableFrom = startId => {
+      const visited = new Set();
+      const queue = [startId];
+      while (queue.length) {
+        const id = queue.shift();
+        if (visited.has(id)) continue;
+        visited.add(id);
+        for (const nid of adj.get(id) ?? []) {
+          if (!visited.has(nid)) queue.push(nid);
+        }
+      }
+      return visited;
+    };
+
+    // State
+    const kindFilters = new Set();
+    let currentGroup = 0;
+    let selected = null;
+    let cascade = { strategic: null, tactical: null };
+
+    // Diagram state
+    let diagramReady = false;
+    let renderCounter = 0;
+    let flowDirection = 'TD';
+    const nodeMap = new Map();        // "n0" -> decision
+    const decisionToNode = new Map(); // decision.id -> "n0"
+    const nodeElements = new Map();   // decision.id -> SVG DOM element
+
+    // Flow direction toggle
+    $('flow-toggle').onclick = () => {
+      flowDirection = flowDirection === 'TD' ? 'LR' : 'TD';
+      $('flow-toggle').innerHTML = flowDirection === 'TD' ? '&#x25BC;' : '&#x25B6;';
+      if (diagramReady) renderDiagram(getFiltered());
+    };
+
+    // Kind filter bar
+    const kindBar = $('kind-filters');
+    const renderKindFilters = () => {
+      kindBar.innerHTML = '';
+      for (const k of Object.keys(meta.by_kind ?? {}).sort()) {
+        const el = document.createElement('span');
+        el.className = `kind-filter${kindFilters.has(k) ? ' on' : ''}`;
+        el.textContent = `${k} (${meta.by_kind[k]})`;
+        el.onclick = () => {
+          kindFilters.has(k) ? kindFilters.delete(k) : kindFilters.add(k);
+          renderKindFilters();
+          renderAll();
+        };
+        kindBar.appendChild(el);
+      }
+    };
+
+    // Tabs
+    const groupings = [
+      { id: 'level', label: 'By Level' },
+      { id: 'scope', label: 'By Scope' },
+      { id: 'kind',  label: 'By Kind' },
+      { id: 'label', label: 'By Label' },
+    ];
+    const tabsEl = $('tabs');
+    const renderTabs = () => {
+      tabsEl.innerHTML = '';
+      for (const [i, g] of groupings.entries()) {
+        const t = document.createElement('div');
+        t.className = `tab${i === currentGroup ? ' active' : ''}`;
+        t.textContent = g.label;
+        t.onclick = () => {
+          currentGroup = i;
+          cascade = { strategic: null, tactical: null };
+          renderTabs();
+          renderList();
+        };
+        tabsEl.appendChild(t);
+      }
+    };
+
+    const getFiltered = () => kindFilters.size ? decisions.filter(d => kindFilters.has(d.kind)) : decisions;
+
+    // Render list only (tab/selection changes)
+    const renderList = () => {
+      const master = $('master');
+      master.innerHTML = '';
+      const ds = getFiltered();
+      if (groupings[currentGroup].id === 'level') {
+        renderByLevel(master, ds);
+      } else if (groupings[currentGroup].id === 'label') {
+        renderByLabel(master, ds);
+      } else {
+        const gfn = groupings[currentGroup].id === 'scope'
+          ? d => d.scope || '(no scope)'
+          : d => d.kind;
+        renderGrouped(master, ds, gfn);
+      }
+    };
+
+    // Render list + diagram (filter changes)
+    const renderAll = () => {
+      const ds = getFiltered();
+      renderList();
+      if (diagramReady) renderDiagram(ds);
+    };
+
+    // Selection changed — update list highlight + diagram highlight + detail
+    const selectDecision = (d) => {
+      selected = d.id;
+      renderList();
+      renderDetail(d);
+      highlightDiagramNode();
+    };
+
+    const makeRow = (d, onclick, extraClass = '') => {
+      const r = document.createElement('div');
+      const inactive = d.status === 'deprecated' || d.status === 'superseded';
+      r.className = `row${inactive ? ' inactive' : ''}${selected === d.id ? ' selected' : ''}${extraClass}`;
+      r.innerHTML = `<span class="title">${esc(d.title)}</span>`
+        + `<span class="badge kind">${esc(d.kind)}</span>`
+        + `<span class="badge weight-${d.weight}">${esc(d.weight)}</span>`;
+      r.onclick = onclick;
+      return r;
+    };
+
+    const renderByLevel = (master, ds) => {
+      const byLevel = Object.fromEntries(LEVEL_ORDER.map(l => [l, []]));
+      for (const d of ds) byLevel[d.level]?.push(d);
+
+      const strategicReach = cascade.strategic ? reachableFrom(cascade.strategic) : null;
+      const tacticalReach = cascade.tactical ? reachableFrom(cascade.tactical) : null;
+
+      for (const [levelIdx, levelName] of LEVEL_ORDER.entries()) {
+        let items = byLevel[levelName];
+        let filterSource = null;
+
+        if (levelIdx === 1 && strategicReach) {
+          items = items.filter(d => strategicReach.has(d.id));
+          filterSource = cascade.strategic;
+        } else if (levelIdx === 2) {
+          if (tacticalReach) {
+            items = items.filter(d => tacticalReach.has(d.id));
+            filterSource = cascade.tactical;
+          } else if (strategicReach) {
+            items = items.filter(d => strategicReach.has(d.id));
+            filterSource = cascade.strategic;
+          }
+        }
+
+        const g = document.createElement('div');
+        g.className = 'group';
+        const h = document.createElement('div');
+        h.className = 'group-header';
+        let headerHtml = `<span class="arrow">&#9660;</span> ${esc(levelName)} <span class="count">(${items.length})</span>`;
+        if (filterSource) {
+          const src = byId.get(filterSource);
+          if (src) headerHtml += `<span class="cascade-info">filtered by ${esc(src.title)}</span>`;
+        }
+        h.innerHTML = headerHtml;
+        h.onclick = () => g.classList.toggle('collapsed');
+        g.appendChild(h);
+
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'group-items';
+        for (const d of items) {
+          const isAnchor = cascade.strategic === d.id || cascade.tactical === d.id;
+          const r = makeRow(d, () => {
+            if (levelName === 'strategic') {
+              cascade.strategic = cascade.strategic === d.id ? null : d.id;
+              cascade.tactical = null;
+            } else if (levelName === 'tactical') {
+              cascade.tactical = cascade.tactical === d.id ? null : d.id;
+            }
+            selectDecision(d);
+          }, isAnchor ? ' cascade-anchor' : '');
+          itemsDiv.appendChild(r);
+        }
+        g.appendChild(itemsDiv);
+        master.appendChild(g);
+      }
+    };
+
+    const renderGrouped = (master, ds, gfn) => {
+      const groups = new Map();
+      for (const d of ds) {
+        const k = gfn(d);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(d);
+      }
+      for (const [name, items] of groups) {
+        const g = document.createElement('div');
+        g.className = 'group';
+        const h = document.createElement('div');
+        h.className = 'group-header';
+        h.innerHTML = `<span class="arrow">&#9660;</span> ${esc(name)} <span class="count">(${items.length})</span>`;
+        h.onclick = () => g.classList.toggle('collapsed');
+        g.appendChild(h);
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'group-items';
+        for (const d of items) {
+          itemsDiv.appendChild(makeRow(d, () => selectDecision(d)));
+        }
+        g.appendChild(itemsDiv);
+        master.appendChild(g);
+      }
+    };
+
+    const renderByLabel = (master, ds) => {
+      const groups = new Map();
+      for (const d of ds) {
+        const lbls = d.labels?.length ? d.labels : ['(no label)'];
+        for (const lbl of lbls) {
+          if (!groups.has(lbl)) groups.set(lbl, []);
+          groups.get(lbl).push(d);
+        }
+      }
+      for (const [name, items] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        const g = document.createElement('div');
+        g.className = 'group';
+        const h = document.createElement('div');
+        h.className = 'group-header';
+        h.innerHTML = `<span class="arrow">&#9660;</span> ${esc(name)} <span class="count">(${items.length})</span>`;
+        h.onclick = () => g.classList.toggle('collapsed');
+        g.appendChild(h);
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'group-items';
+        for (const d of items) {
+          itemsDiv.appendChild(makeRow(d, () => selectDecision(d)));
+        }
+        g.appendChild(itemsDiv);
+        master.appendChild(g);
+      }
+    };
+
+    const renderDetail = d => {
+      const det = $('detail');
+      det.classList.remove('has-content');
+      void det.offsetWidth;
+      det.classList.add('has-content');
+      let h = '';
+      if (d.status === 'deprecated') h += '<div class="status-banner deprecated">Deprecated</div>';
+      else if (d.status === 'superseded') h += `<div class="status-banner superseded">Superseded${d.superseded_by ? ` by ${esc(d.superseded_by)}` : ''}</div>`;
+      h += `<h2>${esc(d.title)}</h2>`;
+      h += `<div class="detail-id">${esc(d.id)}</div>`;
+      h += '<div class="detail-meta">';
+      h += `<span class="badge kind">${esc(d.kind)}</span>`;
+      h += `<span class="badge weight-${d.weight}">${esc(d.weight)}</span>`;
+      h += `<span class="pill">${esc(d.level)}</span>`;
+      h += `<span class="pill">${esc(d.status)}</span>`;
+      if (d.scope) h += `<span class="pill">${esc(d.scope)}</span>`;
+      for (const lbl of d.labels ?? []) h += `<span class="pill">${esc(lbl)}</span>`;
+      h += '</div>';
+      if (d.body) h += `<div class="detail-body">${esc(d.body)}</div>`;
+      if (d.rebuttal) h += `<div class="detail-field"><div class="label">Rebuttal</div><div class="value">${esc(d.rebuttal)}</div></div>`;
+      if (d.links?.length) {
+        h += '<div class="detail-links"><div class="label" style="margin-bottom:6px">Links</div><table><tr><th>Kind</th><th>Source</th><th>Target</th><th>Reason</th></tr>';
+        for (const l of d.links) {
+          h += `<tr><td>${esc(l.kind)}</td><td>${esc(l.source_id)}</td><td>${esc(l.target_id)}</td><td>${esc(l.reason)}</td></tr>`;
+        }
+        h += '</table></div>';
+      }
+      det.innerHTML = h;
+    };
+
+    // --- Mermaid diagram ---
+
+    const buildMermaidDSL = (ds) => {
+      nodeMap.clear();
+      decisionToNode.clear();
+      if (!ds.length) return null;
+
+      const visibleIds = new Set(ds.map(d => d.id));
+      let dsl = `flowchart ${flowDirection}\n`;
+
+      // Assign node IDs first
+      for (const [i, d] of ds.entries()) {
+        const nid = `n${i}`;
+        nodeMap.set(nid, d);
+        decisionToNode.set(d.id, nid);
+      }
+
+      // Group decisions by level into subgraphs so Mermaid
+      // lays out strategic at the top, tactical in the middle,
+      // operational at the bottom
+      for (const level of LEVEL_ORDER) {
+        const inLevel = ds.filter(d => d.level === level);
+        if (!inLevel.length) continue;
+        const label = level.charAt(0).toUpperCase() + level.slice(1);
+        dsl += `  subgraph ${level}["${label}"]\n`;
+        for (const d of inLevel) {
+          const nid = decisionToNode.get(d.id);
+          dsl += `    ${nid}["${mermaidSafe(d.title)}"]\n`;
+        }
+        dsl += '  end\n';
+      }
+
+      // Edges: reverse direction so arrows flow downward through the
+      // hierarchy (strategic → tactical → operational). The data model
+      // has links pointing upward (operational --supports--> strategic)
+      // but dagre places edge sources above targets, so we flip them
+      // to get the correct top-down visual layout.
+      const LEVEL_RANK = { strategic: 0, tactical: 1, operational: 2 };
+      const seenLinks = new Set();
+      for (const d of ds) {
+        for (const l of d.links ?? []) {
+          if (!visibleIds.has(l.source_id) || !visibleIds.has(l.target_id)) continue;
+          const key = `${l.source_id}:${l.kind}:${l.target_id}`;
+          if (seenLinks.has(key)) continue;
+          seenLinks.add(key);
+          let src = decisionToNode.get(l.source_id);
+          let tgt = decisionToNode.get(l.target_id);
+          // Flip so the higher-level (lower rank) node is the source
+          const srcLevel = byId.get(l.source_id)?.level;
+          const tgtLevel = byId.get(l.target_id)?.level;
+          if ((LEVEL_RANK[srcLevel] ?? 9) > (LEVEL_RANK[tgtLevel] ?? 9)) {
+            [src, tgt] = [tgt, src];
+          }
+          if (src && tgt) dsl += `  ${src} -->|${mermaidSafe(l.kind)}| ${tgt}\n`;
+        }
+      }
+
+      dsl += '  classDef strategic fill:#d4d4d4,stroke:#888,stroke-width:2px,color:#141414\n';
+      dsl += '  classDef tactical fill:#e6e6e6,stroke:#aaa,stroke-width:1.5px,color:#333\n';
+      dsl += '  classDef operational fill:#f0f0f0,stroke:#ccc,stroke-width:1px,color:#525252\n';
+      for (const [nid, d] of nodeMap) {
+        dsl += `  class ${nid} ${d.level}\n`;
+      }
+      return dsl;
+    };
+
+    const renderDiagram = async (ds) => {
+      const inner = $('diagram-inner');
+      if (!ds.length) {
+        inner.innerHTML = '<div class="empty-state">No decisions to display</div>';
+        return;
+      }
+      const dsl = buildMermaidDSL(ds);
+      if (!dsl) return;
+
+      const thisRender = ++renderCounter;
+      try {
+        const { svg } = await mermaid.render(`d${thisRender}`, dsl);
+        if (thisRender !== renderCounter) return;
+        inner.innerHTML = svg;
+        // Attach click handlers and build element lookup
+        nodeElements.clear();
+        for (const [nid, d] of nodeMap) {
+          for (const node of inner.querySelectorAll('.node')) {
+            if (node.id?.includes(`-${nid}-`)) {
+              node.style.cursor = 'pointer';
+              node.addEventListener('click', () => selectDecision(d));
+              nodeElements.set(d.id, node);
+              break;
+            }
+          }
+        }
+        svgBaseWidth = 0;
+        svgBaseHeight = 0;
+        applyZoom();
+        highlightDiagramNode();
+      } catch {
+        inner.innerHTML = '<div class="empty-state">Could not render diagram</div>';
+      }
+    };
+
+    const highlightDiagramNode = () => {
+      for (const el of nodeElements.values()) el.classList.remove('highlighted');
+      if (!selected) return;
+      const el = nodeElements.get(selected);
+      if (el) el.classList.add('highlighted');
+    };
+
+    // Diagram zoom — Ctrl+wheel, 100%–500%
+    // Resizes the SVG element directly so the container grows to fit
+    let zoomLevel = 1;
+    let zoomBadgeTimer = 0;
+    let svgBaseWidth = 0;
+    let svgBaseHeight = 0;
+    const diagramEl = $('diagram');
+    const diagramInner = $('diagram-inner');
+    const zoomBadge = $('zoom-badge');
+
+    const captureBaseline = () => {
+      const svgEl = diagramInner.querySelector('svg');
+      if (!svgEl) return;
+      // Reset to CSS-constrained natural size before measuring
+      svgEl.style.width = '';
+      svgEl.style.height = '';
+      svgEl.style.maxWidth = '';
+      const rect = svgEl.getBoundingClientRect();
+      svgBaseWidth = rect.width;
+      svgBaseHeight = rect.height;
+    };
+
+    const applyZoom = () => {
+      const svgEl = diagramInner.querySelector('svg');
+      if (!svgEl) return;
+      if (zoomLevel <= 1) {
+        svgEl.style.width = '';
+        svgEl.style.height = '';
+        svgEl.style.maxWidth = '';
+        return;
+      }
+      if (!svgBaseWidth) captureBaseline();
+      svgEl.style.maxWidth = 'none';
+      svgEl.style.width = `${svgBaseWidth * zoomLevel}px`;
+      svgEl.style.height = `${svgBaseHeight * zoomLevel}px`;
+    };
+
+    diagramEl.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const oldZoom = zoomLevel;
+      zoomLevel = Math.max(1, zoomLevel + delta);
+      if (zoomLevel === oldZoom) return;
+
+      // Zoom-to-cursor: keep the content point under the mouse stable
+      const rect = diagramEl.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const beforeX = diagramEl.scrollLeft + mouseX;
+      const beforeY = diagramEl.scrollTop + mouseY;
+
+      applyZoom();
+
+      const ratio = zoomLevel / oldZoom;
+      diagramEl.scrollLeft = beforeX * ratio - mouseX;
+      diagramEl.scrollTop = beforeY * ratio - mouseY;
+
+      zoomBadge.textContent = `${Math.round(zoomLevel * 100)}%`;
+      zoomBadge.classList.add('visible');
+      clearTimeout(zoomBadgeTimer);
+      zoomBadgeTimer = setTimeout(() => zoomBadge.classList.remove('visible'), 800);
+    }, { passive: false });
+
+    // Drag-to-pan
+    let dragging = false, dragX = 0, dragY = 0;
+    diagramEl.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      dragging = true;
+      dragX = e.clientX;
+      dragY = e.clientY;
+      diagramEl.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      diagramEl.scrollLeft += dragX - e.clientX;
+      diagramEl.scrollTop += dragY - e.clientY;
+      dragX = e.clientX;
+      dragY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      diagramEl.style.cursor = '';
+    });
+
+    // Mermaid lifecycle hooks
+    window.initDiagram = () => {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#e4e4e4',
+          primaryTextColor: '#141414',
+          primaryBorderColor: '#aaa',
+          lineColor: '#999',
+          secondaryColor: '#f0f0f0',
+          tertiaryColor: '#f9f9f9',
+          fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+          fontSize: '13px',
+        },
+        flowchart: { curve: 'basis', padding: 16, nodeSpacing: 40, rankSpacing: 50, subGraphTitleMargin: { top: 8, bottom: 4 } },
+      });
+      diagramReady = true;
+      renderDiagram(getFiltered());
+    };
+
+    window.diagramUnavailable = () => {
+      $('diagram-inner').innerHTML = '<div class="empty-state">Diagram unavailable offline</div>';
+    };
+
+    renderKindFilters();
+    renderTabs();
+    renderList();
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" onload="initDiagram()" onerror="diagramUnavailable()"></script>
+</body>
+</html>

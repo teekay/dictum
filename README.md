@@ -28,6 +28,7 @@ Decisions get lost in chat threads, meeting notes, and commit messages. Dictum g
 - **Tree view**: visualize the refines-hierarchy
 - **Full-text search** across titles and bodies
 - **JSONL export/import** for portability and git-tracking
+- **HTML report**: decision matrix with interactive filters, Mermaid relationship diagram, and master-detail layout — for meetings, 1:1s, and executive review (requires network access for fonts and diagram)
 - **Auto-detecting output format**: human-readable text on TTY, JSON when piped
 
 ## Commands
@@ -66,6 +67,11 @@ dictum context [--format text|json|compact]          # Active decisions for LLM 
          [--kind X] [--weight X] [--scope X]         #   Filter to what's relevant
 
 dictum tui                                          # Interactive terminal UI (requires tui feature)
+
+dictum report [-o file] [--all] [--template file]     # Generate HTML decision matrix report
+  -o report.html                                     #   Write to file (default: stdout)
+  --all                                              #   Include deprecated/superseded decisions
+  --template ~/.local/share/dictum/report.html       #   Use a custom HTML template
 
 dictum export [-o file]                              # Export to JSONL (default: stdout)
 dictum import [-i file] [--dry-run]                  # Import from JSONL (default: stdin)
