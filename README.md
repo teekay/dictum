@@ -28,7 +28,7 @@ Decisions get lost in chat threads, meeting notes, and commit messages. Dictum g
 - **Tree view**: visualize the refines-hierarchy
 - **Full-text search** across titles and bodies
 - **JSONL export/import** for portability and git-tracking
-- **HTML report**: self-contained decision matrix with interactive filters, Mermaid relationship diagram, and master-detail layout — for meetings, 1:1s, and executive review
+- **HTML report**: decision matrix with interactive filters, Mermaid relationship diagram, and master-detail layout — for meetings, 1:1s, and executive review (requires network access for fonts and diagram)
 - **Auto-detecting output format**: human-readable text on TTY, JSON when piped
 
 ## Commands

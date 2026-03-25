@@ -46,6 +46,9 @@ pub enum DictumError {
 
     #[error("config error: {0}")]
     Config(String),
+
+    #[error("template does not contain the required data placeholder (/*__DICTUM_DATA__*/null)")]
+    InvalidTemplate,
 }
 
 pub type Result<T> = std::result::Result<T, DictumError>;
