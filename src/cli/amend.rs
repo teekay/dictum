@@ -23,9 +23,9 @@ pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
     crate::cli::ensure_init(&dictum_dir)?;
 
     let config = Config::load(&dictum_dir)?;
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
 
-    let old = db::decisions::get(&conn, &args.id)?;
+    let old = store.decision_get(&args.id)?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let new_title = args.title.unwrap_or_else(|| old.title.clone());
@@ -48,14 +48,12 @@ pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
         scope: args.scope.or(old.scope.clone()),
     };
 
-    db::decisions::insert(&conn, &new_decision)?;
+    store.decision_insert(&new_decision)?;
 
-    // Copy labels
     for label in &old.labels {
-        db::labels::add(&conn, &new_id, label)?;
+        store.label_add(&new_id, label)?;
     }
 
-    // Create supersedes link
     let link = Link {
         source_id: new_id.clone(),
         target_id: args.id.clone(),
@@ -63,10 +61,9 @@ pub fn run(path: &Path, args: AmendArgs, is_tty: bool) -> Result<()> {
         created_at: now,
         reason: None,
     };
-    db::links::insert(&conn, &link)?;
+    store.link_insert(&link)?;
 
-    // Mark old as superseded
-    db::decisions::update_status(&conn, &args.id, &Status::Superseded, Some(&new_id))?;
+    store.decision_update_status(&args.id, &Status::Superseded, Some(&new_id))?;
 
     let format = OutputFormat::from_str_or_auto(args.format.as_deref(), is_tty);
     match format {
@@ -92,12 +89,10 @@ pub fn run_deprecate(
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
 
-    // Verify exists
-    let _decision = db::decisions::get(&conn, id)?;
-
-    db::decisions::update_status(&conn, id, &Status::Deprecated, None)?;
+    store.decision_get(id)?;
+    store.decision_update_status(id, &Status::Deprecated, None)?;
 
     let format = OutputFormat::from_str_or_auto(fmt.as_deref(), is_tty);
     match format {
@@ -109,7 +104,7 @@ pub fn run_deprecate(
             println!();
         }
         _ => {
-            let updated = db::decisions::get(&conn, id)?;
+            let updated = store.decision_get(id)?;
             let output = serde_json::to_string(&updated)?;
             println!("{}", output);
         }

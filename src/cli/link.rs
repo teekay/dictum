@@ -8,12 +8,11 @@ pub fn run_link(path: &Path, source_id: &str, kind: &str, target_id: &str, reaso
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
     let kind: LinkKind = kind.parse()?;
 
-    // Verify both decisions exist
-    db::decisions::get(&conn, source_id)?;
-    db::decisions::get(&conn, target_id)?;
+    store.decision_get(source_id)?;
+    store.decision_get(target_id)?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let link = Link {
@@ -23,11 +22,10 @@ pub fn run_link(path: &Path, source_id: &str, kind: &str, target_id: &str, reaso
         created_at: now,
         reason,
     };
-    db::links::insert(&conn, &link)?;
+    store.link_insert(&link)?;
 
-    // If supersedes, update the target status
     if kind == LinkKind::Supersedes {
-        db::decisions::update_status(&conn, target_id, &Status::Superseded, Some(source_id))?;
+        store.decision_update_status(target_id, &Status::Superseded, Some(source_id))?;
     }
 
     println!("Linked: {} {} {}", source_id, link.kind, target_id);
@@ -38,10 +36,10 @@ pub fn run_unlink(path: &Path, source_id: &str, kind: &str, target_id: &str) -> 
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
     let kind: LinkKind = kind.parse()?;
 
-    db::links::delete(&conn, source_id, &kind, target_id)?;
+    store.link_delete(source_id, &kind, target_id)?;
 
     println!("Unlinked: {} {} {}", source_id, kind, target_id);
     Ok(())

@@ -26,7 +26,7 @@ pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
     crate::cli::ensure_init(&dictum_dir)?;
 
     let config = Config::load(&dictum_dir)?;
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
 
     let now = chrono::Utc::now().to_rfc3339();
     let author = args
@@ -53,17 +53,14 @@ pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
         scope: args.scope,
     };
 
-    db::decisions::insert(&conn, &decision)?;
+    store.decision_insert(&decision)?;
 
-    // Add labels
     for label in &args.label {
-        db::labels::add(&conn, &id, label)?;
+        store.label_add(&id, label)?;
     }
 
-    // Add parent link if specified
     if let Some(ref parent_id) = args.parent {
-        // Verify parent exists
-        db::decisions::get(&conn, parent_id)?;
+        store.decision_get(parent_id)?;
 
         let link = Link {
             source_id: id.clone(),
@@ -72,7 +69,7 @@ pub fn run(path: &Path, args: AddArgs, is_tty: bool) -> Result<()> {
             created_at: now,
             reason: None,
         };
-        db::links::insert(&conn, &link)?;
+        store.link_insert(&link)?;
     }
 
     let format = OutputFormat::from_str_or_auto(args.format.as_deref(), is_tty);

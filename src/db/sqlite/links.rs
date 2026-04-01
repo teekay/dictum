@@ -62,12 +62,14 @@ pub fn get_for_decision(conn: &Connection, decision_id: &str) -> Result<Vec<Link
     Ok(links)
 }
 
-/// Get all refines links for building the tree
-pub fn get_refines_links(conn: &Connection) -> Result<Vec<(String, String)>> {
-    let mut stmt = conn
-        .prepare("SELECT source_id, target_id FROM links WHERE kind = 'refines' ORDER BY created_at")?;
+pub fn get_of_kind(conn: &Connection, kind: &LinkKind) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT source_id, target_id FROM links WHERE kind = ?1 ORDER BY created_at",
+    )?;
     let links = stmt
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+        .query_map(params![kind.to_string()], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     Ok(links)
 }

@@ -4,8 +4,9 @@ use std::path::Path;
 use serde_json::json;
 
 use crate::db;
+use crate::db::{ListFilter, Store};
 use crate::error::Result;
-use crate::model::Status;
+use crate::model::{Decision, Status};
 
 const REPORT_TEMPLATE: &str = include_str!("../assets/report.html");
 const DATA_PLACEHOLDER: &str = "/*__DICTUM_DATA__*/null";
@@ -14,22 +15,19 @@ pub fn run(path: &Path, all: bool, output_file: Option<String>, template: Option
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let store = db::open(&dictum_dir)?;
 
     let decisions = if all {
-        db::decisions::get_all(&conn)?
+        store.decision_get_all()?
     } else {
-        db::decisions::list(
-            &conn,
-            &db::decisions::ListFilter {
-                status: Some(Status::Active),
-                level: None,
-                label: None,
-                kind: None,
-                weight: None,
-                scope: None,
-            },
-        )?
+        store.decision_list(&ListFilter {
+            status: Some(Status::Active),
+            level: None,
+            label: None,
+            kind: None,
+            weight: None,
+            scope: None,
+        })?
     };
 
     let project_name = path
@@ -47,7 +45,7 @@ pub fn run(path: &Path, all: bool, output_file: Option<String>, template: Option
         None => REPORT_TEMPLATE,
     };
 
-    let report_data = build_report_data(&conn, &decisions, &project_name)?;
+    let report_data = build_report_data(&*store, &decisions, &project_name)?;
     let json_str = serde_json::to_string(&report_data)?;
     let html = tmpl.replacen(DATA_PLACEHOLDER, &json_str, 1);
 
@@ -66,8 +64,8 @@ pub fn run(path: &Path, all: bool, output_file: Option<String>, template: Option
 }
 
 fn build_report_data(
-    conn: &rusqlite::Connection,
-    decisions: &[crate::model::Decision],
+    store: &dyn Store,
+    decisions: &[Decision],
     project_name: &str,
 ) -> Result<serde_json::Value> {
     let mut active = 0u32;
@@ -88,7 +86,7 @@ fn build_report_data(
         *by_kind.entry(d.kind.to_string()).or_default() += 1;
         *by_level.entry(d.level.to_string()).or_default() += 1;
 
-        let links = db::links::get_for_decision(conn, &d.id)?;
+        let links = store.links_for_decision(&d.id)?;
         let links_json: Vec<serde_json::Value> = links
             .iter()
             .map(|l| {

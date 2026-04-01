@@ -11,6 +11,9 @@ pub enum DictumError {
     #[error("decision not found: {0}")]
     DecisionNotFound(String),
 
+    #[error("decision already exists")]
+    DecisionAlreadyExists,
+
     #[error("invalid level: {0} (expected strategic, tactical, or operational)")]
     InvalidLevel(String),
 
@@ -35,6 +38,14 @@ pub enum DictumError {
     #[error("cannot link a decision to itself")]
     SelfLink,
 
+    #[error(
+        "wrong binary: this .dictum/ was initialized with the '{found}' backend \
+         but this binary uses '{expected}'. \
+         Export with the correct binary then import here."
+    )]
+    BackendMismatch { found: String, expected: String },
+
+    #[cfg(feature = "sqlite")]
     #[error("database error: {0}")]
     Db(#[from] rusqlite::Error),
 

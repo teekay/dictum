@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::db;
-use crate::db::decisions::ListFilter;
+use crate::db::ListFilter;
 use crate::error::Result;
 use crate::format::{self, OutputFormat};
 use crate::model::{Kind, Level, Status, Weight};
@@ -21,7 +21,7 @@ pub fn run(path: &Path, args: ListArgs, is_tty: bool) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let store = db::open(&dictum_dir)?;
 
     let level = args.level.map(|l| l.parse::<Level>()).transpose()?;
     let status = args.status.map(|s| s.parse::<Status>()).transpose()?;
@@ -37,11 +37,11 @@ pub fn run(path: &Path, args: ListArgs, is_tty: bool) -> Result<()> {
         scope: args.scope,
     };
 
-    let decisions = db::decisions::list(&conn, &filter)?;
+    let decisions = store.decision_list(&filter)?;
     let fmt = OutputFormat::from_str_or_auto(args.format.as_deref(), is_tty);
 
     if args.tree {
-        let refines_links = db::links::get_refines_links(&conn)?;
+        let refines_links = store.links_of_kind(&crate::model::LinkKind::Refines)?;
         let output = crate::format::tree::format_tree(&decisions, &refines_links);
         print!("{}", output);
     } else {
@@ -56,9 +56,9 @@ pub fn run_tree(path: &Path) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
-    let decisions = db::decisions::get_all(&conn)?;
-    let refines_links = db::links::get_refines_links(&conn)?;
+    let store = db::open(&dictum_dir)?;
+    let decisions = store.decision_get_all()?;
+    let refines_links = store.links_of_kind(&crate::model::LinkKind::Refines)?;
     let output = crate::format::tree::format_tree(&decisions, &refines_links);
     print!("{}", output);
 

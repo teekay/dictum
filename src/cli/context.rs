@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::db;
-use crate::db::decisions::ListFilter;
+use crate::db::ListFilter;
+use crate::db::Store;
 use crate::error::Result;
 use crate::format::OutputFormat;
 use crate::model::{Decision, Kind, Status, Weight};
@@ -18,44 +19,29 @@ pub fn run(path: &Path, args: ContextArgs, is_tty: bool) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
+    let store = db::open(&dictum_dir)?;
 
-    // Only active decisions, with optional filters
-    let decisions = db::decisions::list(
-        &conn,
-        &ListFilter {
-            level: None,
-            status: Some(Status::Active),
-            label: None,
-            kind: args.kind,
-            weight: args.weight,
-            scope: args.scope,
-        },
-    )?;
+    let decisions = store.decision_list(&ListFilter {
+        level: None,
+        status: Some(Status::Active),
+        label: None,
+        kind: args.kind,
+        weight: args.weight,
+        scope: args.scope,
+    })?;
 
     let format = OutputFormat::from_str_or_auto(args.format.as_deref(), is_tty);
 
     match format {
-        OutputFormat::Compact => {
-            print_compact_context(&conn, &decisions)?;
-        }
-        OutputFormat::Json => {
-            print_json_context(&conn, &decisions)?;
-        }
-        _ => {
-            print_text_context(&conn, &decisions)?;
-        }
+        OutputFormat::Compact => print_compact_context(&*store, &decisions)?,
+        OutputFormat::Json => print_json_context(&*store, &decisions)?,
+        _ => print_text_context(&*store, &decisions)?,
     }
 
     Ok(())
 }
 
-/// Compact output: minimal fields, single-line JSON, optimized for token efficiency.
-fn print_compact_context(
-    conn: &rusqlite::Connection,
-    decisions: &[Decision],
-) -> Result<()> {
-    // Collect decision IDs in the result set for link filtering
+fn print_compact_context(store: &dyn Store, decisions: &[Decision]) -> Result<()> {
     let decision_ids: std::collections::HashSet<&str> =
         decisions.iter().map(|d| d.id.as_str()).collect();
 
@@ -82,11 +68,13 @@ fn print_compact_context(
             map.insert("labels".to_string(), serde_json::to_value(&d.labels)?);
         }
 
-        // Only include links where both ends are in the result set
-        let links = db::links::get_for_decision(conn, &d.id)?;
+        let links = store.links_for_decision(&d.id)?;
         let relevant_links: Vec<serde_json::Value> = links
             .iter()
-            .filter(|l| decision_ids.contains(l.source_id.as_str()) && decision_ids.contains(l.target_id.as_str()))
+            .filter(|l| {
+                decision_ids.contains(l.source_id.as_str())
+                    && decision_ids.contains(l.target_id.as_str())
+            })
             .map(|l| {
                 let mut link_obj = serde_json::json!({
                     "kind": l.kind.to_string(),
@@ -117,13 +105,10 @@ fn print_compact_context(
     Ok(())
 }
 
-fn print_json_context(
-    conn: &rusqlite::Connection,
-    decisions: &[Decision],
-) -> Result<()> {
+fn print_json_context(store: &dyn Store, decisions: &[Decision]) -> Result<()> {
     let mut entries = Vec::new();
     for d in decisions {
-        let links = db::links::get_for_decision(conn, &d.id)?;
+        let links = store.links_for_decision(&d.id)?;
         let mut value = serde_json::to_value(d)?;
         if let serde_json::Value::Object(ref mut map) = value {
             let link_values: Vec<serde_json::Value> = links
@@ -135,9 +120,10 @@ fn print_json_context(
                         "target": l.target_id,
                     });
                     if let Some(ref reason) = l.reason {
-                        obj.as_object_mut()
-                            .unwrap()
-                            .insert("reason".to_string(), serde_json::Value::String(reason.clone()));
+                        obj.as_object_mut().unwrap().insert(
+                            "reason".to_string(),
+                            serde_json::Value::String(reason.clone()),
+                        );
                     }
                     obj
                 })
@@ -145,10 +131,9 @@ fn print_json_context(
             if !link_values.is_empty() {
                 map.insert("links".to_string(), serde_json::Value::Array(link_values));
             }
-            // Remove noise for LLM context
             map.remove("updated_at");
             map.remove("created_at");
-            map.remove("status"); // all active, redundant
+            map.remove("status");
         }
         entries.push(value);
     }
@@ -156,27 +141,19 @@ fn print_json_context(
     Ok(())
 }
 
-fn print_text_context(
-    conn: &rusqlite::Connection,
-    decisions: &[Decision],
-) -> Result<()> {
+fn print_text_context(store: &dyn Store, decisions: &[Decision]) -> Result<()> {
     if decisions.is_empty() {
         println!("No active decisions.");
         return Ok(());
     }
 
-    // Group by level
     let mut by_level: HashMap<String, Vec<&Decision>> = HashMap::new();
     for d in decisions {
-        by_level
-            .entry(d.level.to_string())
-            .or_default()
-            .push(d);
+        by_level.entry(d.level.to_string()).or_default().push(d);
     }
 
-    let refines_links = db::links::get_refines_links(conn)?;
+    let refines_links = store.links_of_kind(&crate::model::LinkKind::Refines)?;
 
-    // Build parent map: child_id -> parent_id
     let mut parent_of: HashMap<&str, &str> = HashMap::new();
     for (source, target) in &refines_links {
         parent_of.insert(source.as_str(), target.as_str());
