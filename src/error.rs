@@ -49,6 +49,10 @@ pub enum DictumError {
     #[error("database error: {0}")]
     Db(#[from] rusqlite::Error),
 
+    #[cfg(feature = "grafeo")]
+    #[error("database error: {0}")]
+    Grafeo(#[from] grafeo::Error),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 

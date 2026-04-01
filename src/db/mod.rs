@@ -3,6 +3,9 @@ pub mod store;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
+#[cfg(feature = "grafeo")]
+pub mod grafeo;
+
 pub use store::{ListFilter, Store};
 #[allow(unused_imports)]
 pub use store::Neighborhood;
@@ -16,10 +19,10 @@ pub fn open(dictum_dir: &Path) -> Result<Box<dyn Store>> {
     check_backend_marker(dictum_dir)?;
 
     #[cfg(feature = "sqlite")]
-    return Ok(Box::new(sqlite::SqliteStore::open(dictum_dir)?));
+    { return Ok(Box::new(sqlite::SqliteStore::open(dictum_dir)?)); }
 
     #[cfg(feature = "grafeo")]
-    return Ok(Box::new(grafeo::GrafeoStore::open(dictum_dir)?));
+    { return Ok(Box::new(grafeo::GrafeoStore::open(dictum_dir)?)); }
 }
 
 fn check_backend_marker(dictum_dir: &Path) -> Result<()> {
