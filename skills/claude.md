@@ -21,6 +21,10 @@ dictum context --format compact
 dictum decision query "search terms" --format json
 dictum decision show <id> --format json
 dictum decision tree
+
+# Generate an HTML report for human review (meetings, 1:1s, executive review)
+dictum report -o report.html          # active decisions only
+dictum report --all -o report.html    # include deprecated and superseded
 ```
 
 Use `--format compact` for `context` (minified JSON). Use `--format json` for `show`/`query`.

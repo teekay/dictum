@@ -28,7 +28,7 @@ Decisions get lost in chat threads, meeting notes, and commit messages. Dictum g
 - **Tree view**: visualize the refines-hierarchy
 - **Full-text search** across titles and bodies
 - **JSONL export/import** for portability and git-tracking
-- **HTML report**: self-contained decision matrix with interactive filters, Mermaid relationship diagram, and master-detail layout — for meetings, 1:1s, and executive review
+- **HTML report**: decision matrix with interactive filters, Mermaid relationship diagram, and master-detail layout — for meetings, 1:1s, and executive review (requires network access for fonts and diagram)
 - **Auto-detecting output format**: human-readable text on TTY, JSON when piped
 
 ## Commands
@@ -99,6 +99,33 @@ The binary is at `target/release/dictum`. Copy it somewhere on your PATH:
 ```
 cp target/release/dictum ~/.local/bin/
 ```
+
+### Windows (MSVC)
+
+Dictum builds natively with the Microsoft compiler stack — MinGW is not required. You need:
+
+1. **Visual Studio 2022** (Community, Professional, or Enterprise) _or_ **Build Tools for Visual Studio 2022** — with the **"Desktop development with C++"** workload (provides `cl.exe`, `link.exe`, MSVC libraries, and the Windows SDK).
+2. **Rust** via [rustup](https://rustup.rs/) — the installer defaults to the `x86_64-pc-windows-msvc` target, which is what you want.
+
+The MSVC toolchain requires environment variables (`LIB`, `INCLUDE`, `PATH`) that a normal PowerShell session doesn't have. Two options:
+
+**Option A — Developer PowerShell** (simplest): open **"Developer PowerShell for VS 2022"** from the Start Menu, then build normally:
+
+```powershell
+cd dictum
+cargo build --release
+```
+
+**Option B — any terminal**: use `vswhere` to locate your C++ tools and initialize the environment, then build:
+
+```powershell
+$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+    -products '*' -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+    -property installationPath
+cmd /c "`"$vsPath\VC\Auxiliary\Build\vcvarsall.bat`" x64 && cargo build --release"
+```
+
+The binary is at `target\release\dictum.exe`. Copy it somewhere on your PATH.
 
 ## Run
 

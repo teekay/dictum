@@ -282,6 +282,7 @@ const DICTUM_DATA = /*__DICTUM_DATA__*/null;
       { id: 'level', label: 'By Level' },
       { id: 'scope', label: 'By Scope' },
       { id: 'kind',  label: 'By Kind' },
+      { id: 'label', label: 'By Label' },
     ];
     const tabsEl = $('tabs');
     const renderTabs = () => {
@@ -309,6 +310,8 @@ const DICTUM_DATA = /*__DICTUM_DATA__*/null;
       const ds = getFiltered();
       if (groupings[currentGroup].id === 'level') {
         renderByLevel(master, ds);
+      } else if (groupings[currentGroup].id === 'label') {
+        renderByLabel(master, ds);
       } else {
         const gfn = groupings[currentGroup].id === 'scope'
           ? d => d.scope || '(no scope)'
@@ -425,6 +428,33 @@ const DICTUM_DATA = /*__DICTUM_DATA__*/null;
       }
     };
 
+    const renderByLabel = (master, ds) => {
+      const groups = new Map();
+      for (const d of ds) {
+        const lbls = d.labels?.length ? d.labels : ['(no label)'];
+        for (const lbl of lbls) {
+          if (!groups.has(lbl)) groups.set(lbl, []);
+          groups.get(lbl).push(d);
+        }
+      }
+      for (const [name, items] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        const g = document.createElement('div');
+        g.className = 'group';
+        const h = document.createElement('div');
+        h.className = 'group-header';
+        h.innerHTML = `<span class="arrow">&#9660;</span> ${esc(name)} <span class="count">(${items.length})</span>`;
+        h.onclick = () => g.classList.toggle('collapsed');
+        g.appendChild(h);
+        const itemsDiv = document.createElement('div');
+        itemsDiv.className = 'group-items';
+        for (const d of items) {
+          itemsDiv.appendChild(makeRow(d, () => selectDecision(d)));
+        }
+        g.appendChild(itemsDiv);
+        master.appendChild(g);
+      }
+    };
+
     const renderDetail = d => {
       const det = $('detail');
       det.classList.remove('has-content');
@@ -441,6 +471,7 @@ const DICTUM_DATA = /*__DICTUM_DATA__*/null;
       h += `<span class="pill">${esc(d.level)}</span>`;
       h += `<span class="pill">${esc(d.status)}</span>`;
       if (d.scope) h += `<span class="pill">${esc(d.scope)}</span>`;
+      for (const lbl of d.labels ?? []) h += `<span class="pill">${esc(lbl)}</span>`;
       h += '</div>';
       if (d.body) h += `<div class="detail-body">${esc(d.body)}</div>`;
       if (d.rebuttal) h += `<div class="detail-field"><div class="label">Rebuttal</div><div class="value">${esc(d.rebuttal)}</div></div>`;

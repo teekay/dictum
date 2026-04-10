@@ -47,6 +47,9 @@ pub fn run(path: &Path, all: bool, output_file: Option<String>, template: Option
 
     let report_data = build_report_data(&*store, &decisions, &project_name)?;
     let json_str = serde_json::to_string(&report_data)?;
+    if !tmpl.contains(DATA_PLACEHOLDER) {
+        return Err(crate::error::DictumError::InvalidTemplate);
+    }
     let html = tmpl.replacen(DATA_PLACEHOLDER, &json_str, 1);
 
     let mut writer: Box<dyn Write> = match output_file {
@@ -110,6 +113,7 @@ fn build_report_data(
             "scope": d.scope,
             "rebuttal": d.rebuttal,
             "superseded_by": d.superseded_by,
+            "labels": d.labels,
             "links": links_json,
         }));
     }
