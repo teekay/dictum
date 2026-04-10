@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["sqlite"]
+default = ["grafeo"]
 sqlite = ["dep:rusqlite"]
 grafeo = ["dep:grafeo"]
 tui = ["dep:ratatui", "dep:crossterm"]
@@ -12,7 +12,7 @@ tui = ["dep:ratatui", "dep:crossterm"]
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 rusqlite = { version = "0.31", features = ["bundled"], optional = true }
-grafeo = { path = "../../src/grafeo/crates/grafeo", optional = true, default-features = false, features = ["gql", "grafeo-file", "text-index"] }
+grafeo = { version = "0.5", optional = true, default-features = false, features = ["gql", "grafeo-file", "text-index"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
