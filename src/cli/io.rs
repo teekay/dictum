@@ -2,7 +2,7 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::Path;
 
 use crate::db;
-use crate::error::Result;
+use crate::error::{DictumError, Result};
 use crate::format::json::format_export_line;
 use crate::model::{Decision, Link};
 
@@ -10,8 +10,8 @@ pub fn run_export(path: &Path, output_file: Option<String>) -> Result<()> {
     let dictum_dir = path.join(".dictum");
     crate::cli::ensure_init(&dictum_dir)?;
 
-    let conn = db::open(&dictum_dir)?;
-    let decisions = db::decisions::get_all(&conn)?;
+    let store = db::open(&dictum_dir)?;
+    let decisions = store.decision_get_all()?;
 
     let mut writer: Box<dyn Write> = match output_file {
         Some(ref f) => Box::new(std::fs::File::create(f)?),
@@ -19,7 +19,7 @@ pub fn run_export(path: &Path, output_file: Option<String>) -> Result<()> {
     };
 
     for d in &decisions {
-        let links = db::links::get_for_decision(&conn, &d.id)?;
+        let links = store.links_for_decision(&d.id)?;
         let line = format_export_line(d, &links)?;
         writeln!(writer, "{}", line)?;
     }
@@ -47,7 +47,7 @@ pub fn run_import(path: &Path, input_file: Option<String>, dry_run: bool) -> Res
         }
     };
 
-    let conn = db::open(&dictum_dir)?;
+    let mut store = db::open(&dictum_dir)?;
     let mut count = 0;
     let mut link_count = 0;
 
@@ -58,37 +58,27 @@ pub fn run_import(path: &Path, input_file: Option<String>, dry_run: bool) -> Res
         }
 
         let value: serde_json::Value = serde_json::from_str(&line)?;
-
-        // Extract decision fields
         let decision: Decision = serde_json::from_value(value.clone())?;
 
         if dry_run {
             println!("Would import: [{}] {}", decision.id, decision.title);
         } else {
-            // Insert decision (ignore if already exists)
-            match db::decisions::insert(&conn, &decision) {
+            match store.decision_insert(&decision) {
                 Ok(_) => {}
-                Err(crate::error::DictumError::Db(rusqlite::Error::SqliteFailure(err, _)))
-                    if err.code == rusqlite::ErrorCode::ConstraintViolation =>
-                {
-                    // Already exists, skip
-                    continue;
-                }
+                Err(DictumError::DecisionAlreadyExists) => continue,
                 Err(e) => return Err(e),
             }
 
-            // Insert labels
             for label in &decision.labels {
-                db::labels::add(&conn, &decision.id, label)?;
+                store.label_add(&decision.id, label)?;
             }
 
-            // Insert links if present
             if let Some(links) = value.get("links") {
                 if let Ok(links) = serde_json::from_value::<Vec<Link>>(links.clone()) {
                     for link in &links {
-                        match db::links::insert(&conn, link) {
+                        match store.link_insert(link) {
                             Ok(_) => link_count += 1,
-                            Err(crate::error::DictumError::LinkAlreadyExists) => {}
+                            Err(DictumError::LinkAlreadyExists) => {}
                             Err(e) => return Err(e),
                         }
                     }

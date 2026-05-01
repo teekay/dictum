@@ -11,6 +11,8 @@ pub struct Config {
     pub default_author: Option<String>,
     #[serde(default = "default_format")]
     pub default_format: String,
+    #[serde(default = "default_backend")]
+    pub backend: String,
 }
 
 fn default_prefix() -> String {
@@ -21,12 +23,17 @@ fn default_format() -> String {
     "auto".to_string()
 }
 
+fn default_backend() -> String {
+    crate::db::compiled_backend().to_string()
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             prefix: default_prefix(),
             default_author: None,
             default_format: default_format(),
+            backend: default_backend(),
         }
     }
 }

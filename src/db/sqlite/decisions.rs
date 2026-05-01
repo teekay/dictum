@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection, Row};
 
+use crate::db::store::ListFilter;
 use crate::error::{DictumError, Result};
 use crate::model::{Decision, Kind, Level, Status, Weight};
 
@@ -55,7 +56,15 @@ pub fn insert(conn: &Connection, decision: &Decision) -> Result<()> {
             decision.rebuttal,
             decision.scope,
         ],
-    )?;
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::SqliteFailure(err, _)
+            if err.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            DictumError::DecisionAlreadyExists
+        }
+        other => DictumError::Db(other),
+    })?;
     Ok(())
 }
 
@@ -70,18 +79,8 @@ pub fn get(conn: &Connection, id: &str) -> Result<Decision> {
             other => DictumError::Db(other),
         })?;
 
-    // Load labels
-    let labels = crate::db::labels::get_for_decision(conn, id)?;
+    let labels = super::labels::get_for_decision(conn, id)?;
     Ok(Decision { labels, ..decision })
-}
-
-pub struct ListFilter {
-    pub level: Option<Level>,
-    pub status: Option<Status>,
-    pub label: Option<String>,
-    pub kind: Option<Kind>,
-    pub weight: Option<Weight>,
-    pub scope: Option<String>,
 }
 
 pub fn list(conn: &Connection, filter: &ListFilter) -> Result<Vec<Decision>> {
@@ -138,10 +137,9 @@ pub fn list(conn: &Connection, filter: &ListFilter) -> Result<Vec<Decision>> {
         .query_map(params.as_slice(), decision_from_row)?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
-    // Load labels for each decision
     let mut result = Vec::new();
     for d in decisions {
-        let labels = crate::db::labels::get_for_decision(conn, &d.id)?;
+        let labels = super::labels::get_for_decision(conn, &d.id)?;
         result.push(Decision { labels, ..d });
     }
     Ok(result)
@@ -177,35 +175,21 @@ pub fn search(conn: &Connection, query: &str) -> Result<Vec<Decision>> {
 
     let mut result = Vec::new();
     for d in decisions {
-        let labels = crate::db::labels::get_for_decision(conn, &d.id)?;
+        let labels = super::labels::get_for_decision(conn, &d.id)?;
         result.push(Decision { labels, ..d });
     }
     Ok(result)
 }
 
-pub fn get_all(conn: &Connection) -> Result<Vec<Decision>> {
-    list(
-        conn,
-        &ListFilter {
-            level: None,
-            status: None,
-            label: None,
-            kind: None,
-            weight: None,
-            scope: None,
-        },
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db;
+    use crate::db::sqlite;
 
-    fn test_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
+    fn test_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        db::initialize(&conn).unwrap();
+        sqlite::initialize(&conn).unwrap();
         conn
     }
 
@@ -307,5 +291,13 @@ mod tests {
         assert_eq!(got.weight, Weight::May);
         assert_eq!(got.rebuttal.as_deref(), Some("unless audit requires it"));
         assert_eq!(got.scope.as_deref(), Some("auth"));
+    }
+
+    #[test]
+    fn duplicate_insert_returns_already_exists() {
+        let conn = test_db();
+        insert(&conn, &make_decision("d-1", Kind::Rule, Weight::Must, None)).unwrap();
+        let result = insert(&conn, &make_decision("d-1", Kind::Rule, Weight::Must, None));
+        assert!(matches!(result, Err(DictumError::DecisionAlreadyExists)));
     }
 }

@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use rusqlite::Connection;
-
 use crate::db;
+use crate::db::{ListFilter, Store};
 use crate::error::Result;
 use crate::format::tree::build_tree;
 use crate::model::decision::{Kind, Level, Status, Weight};
@@ -43,8 +42,8 @@ impl FilterState {
             && self.scope.is_none()
     }
 
-    pub fn to_list_filter(&self) -> db::decisions::ListFilter {
-        db::decisions::ListFilter {
+    pub fn to_list_filter(&self) -> ListFilter {
+        ListFilter {
             level: self.level.clone(),
             status: self.status.clone(),
             label: None,
@@ -98,7 +97,7 @@ impl FilterState {
 }
 
 pub struct App {
-    pub conn: Connection,
+    pub store: Box<dyn Store>,
     pub view: View,
     pub decisions: Vec<Decision>,
     pub selected_index: usize,
@@ -117,13 +116,13 @@ impl App {
     pub fn new(cwd: &Path) -> Result<Self> {
         let dictum_dir = cwd.join(".dictum");
         crate::cli::ensure_init(&dictum_dir)?;
-        let conn = db::open(&dictum_dir)?;
+        let store = db::open(&dictum_dir)?;
 
-        let decisions = db::decisions::get_all(&conn)?;
-        let refines_links = db::links::get_refines_links(&conn)?;
+        let decisions = store.decision_get_all()?;
+        let refines_links = store.links_of_kind(&crate::model::LinkKind::Refines)?;
 
         let mut app = App {
-            conn,
+            store,
             view: View::List,
             decisions,
             selected_index: 0,
@@ -146,11 +145,11 @@ impl App {
 
     pub fn refresh_list(&mut self) -> Result<()> {
         if self.filter.is_empty() {
-            self.decisions = db::decisions::get_all(&self.conn)?;
+            self.decisions = self.store.decision_get_all()?;
         } else {
-            self.decisions = db::decisions::list(&self.conn, &self.filter.to_list_filter())?;
+            self.decisions = self.store.decision_list(&self.filter.to_list_filter())?;
         }
-        self.refines_links = db::links::get_refines_links(&self.conn)?;
+        self.refines_links = self.store.links_of_kind(&crate::model::LinkKind::Refines)?;
         if self.selected_index >= self.decisions.len() && !self.decisions.is_empty() {
             self.selected_index = self.decisions.len() - 1;
         }
@@ -160,7 +159,6 @@ impl App {
     }
 
     pub fn load_selected_decision(&mut self) {
-        // Determine which decision ID is selected based on current view
         let selected_id = match self.view {
             View::Tree => {
                 self.tree_nodes
@@ -174,9 +172,9 @@ impl App {
         };
 
         if let Some(id) = selected_id {
-            if let Ok(d) = db::decisions::get(&self.conn, &id) {
+            if let Ok(d) = self.store.decision_get(&id) {
                 self.selected_links =
-                    db::links::get_for_decision(&self.conn, &id).unwrap_or_default();
+                    self.store.links_for_decision(&id).unwrap_or_default();
                 self.selected_decision = Some(d);
                 self.detail_scroll = 0;
                 return;
@@ -219,9 +217,9 @@ impl App {
 
     pub fn search(&mut self) -> Result<()> {
         if self.search_query.is_empty() {
-            self.decisions = db::decisions::get_all(&self.conn)?;
+            self.decisions = self.store.decision_get_all()?;
         } else {
-            self.decisions = db::decisions::search(&self.conn, &self.search_query)?;
+            self.decisions = self.store.decision_search(&self.search_query)?;
         }
         self.selected_index = 0;
         self.load_selected_decision();
